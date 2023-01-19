@@ -46,11 +46,7 @@ class MyClient(discord.Client):
         for reaction in pronouns.keys():
             reaction_roles_trimmed.pop(reaction)
 
-    async def on_message(payload):
-        # Run update tasks in the background if it's a new day
-        await check_if_update_needed()
-
-    async def on_message(payload):
+    async def on_message(self, message):
         # Run update tasks in the background if it's a new day
         await check_if_update_needed()
 
