@@ -1,6 +1,7 @@
 import json
 import datetime
 import random
+import sqlite3
 from role_handler import RoleHandler
 
 birthday_messages = [
@@ -14,22 +15,38 @@ birthday_messages = [
     "Happy birthday @USER! Wishing you all the best on your special day and a year filled with happiness."
 ]
 
-async def check_birthday(guild):
-    role_handler = RoleHandler(guild)
-    # Open the JSON file and load the data with encoding utf-8
-    with open("users.json") as f:
-        data = json.load(f)
 
-    # Check if the user has a birthday in the JSON file
-    for user in data:
+# Check if it's a user's birthday using the discord.db database
+async def check_birthday(guild):
+    role_handler = RoleHandler(guild) 
+    # Connect to the database
+    conn = sqlite3.connect('discord.db')
+    c = conn.cursor()
+    
+    # Get all the users_id, username, and birthday from the database
+    c.execute("SELECT user_id, username, birthday FROM users")
+    users = c.fetchall()
+    c.close()
+
+    # Check if the user has a birthday in the database
+    for user in users:
+        print(user)
         await check_user(user, role_handler)
-        
+
+    print("Checked all users")
+
 
 async def check_user(user, role_handler):
     global birthday_messages
-    # Get the user's birthday
-    birthday = datetime.datetime.strptime(
-        user["birthday"], "%m/%d").date()
+    # Get the user's birthday (format is MM-DD or MM-DD-YYYY in the database) using the birthday key
+    if user[2] == "00-00":
+        return
+    try:
+        birthday = datetime.datetime.strptime(user[2], "%m-%d").date()
+    except ValueError:
+        birthday = datetime.datetime.strptime(user[2], "%m-%d-%Y").date()
+    
+        
 
     # Get the current date
     today = datetime.date.today()
@@ -37,7 +54,7 @@ async def check_user(user, role_handler):
     # Check if it's the user's birthday
     if today.month == birthday.month and today.day == birthday.day:
         # Get the user's id
-        user_id = user["user_id"]
+        user_id = user[0]
 
         # Get the birthday role id
         role_id = 961688424341987409
@@ -58,7 +75,7 @@ async def check_user(user, role_handler):
             print(f"Error: {e}")
     else:
         # Get the user's id
-        user_id = user["user_id"]
+        user_id = user[0]
 
         # Get the birthday role id
         role_id = 961688424341987409

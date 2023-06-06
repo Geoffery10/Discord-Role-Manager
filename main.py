@@ -9,8 +9,10 @@ from dotenv import load_dotenv
 import os
 import json
 from birthday import *
+from update import update_database
+import threading
 
-intents = discord.Intents(messages=True, guilds=True)
+intents = discord.Intents(messages=True, guilds=True, members=True, reactions=True, presences=True)
 intents.reactions = True
 YOUR_MESSAGE_ID = [1052391751178014781, 1052391831855448105]
 reaction_roles = {}
@@ -50,7 +52,7 @@ class MyClient(discord.Client):
         # Run update tasks in the background if it's a new day
         await check_if_update_needed()
 
-    async def on_raw_reaction_add(payload):
+    async def on_raw_reaction_add(self, payload):
         print(f"Payload: {payload}")
         # Get the user object
         user = await client.fetch_user(payload.user_id)
@@ -75,7 +77,7 @@ class MyClient(discord.Client):
                     await member.add_roles(role)
                     return
 
-    async def on_raw_reaction_remove(payload):
+    async def on_raw_reaction_remove(self, payload):
         print(f"Payload: {payload}")
         # Get the user object
         user = await client.fetch_user(int(payload.user_id))
@@ -100,6 +102,7 @@ class MyClient(discord.Client):
                     await member.remove_roles(role)
                     return
 
+import asyncio
 
 async def update():
     # Run Daily Tasks
@@ -107,6 +110,18 @@ async def update():
     # Update Birthday Roles
     print("Updating Birthday Roles")
     await check_birthday(guild=client.get_guild(254779349352448001))
+    # Update the database for each guild
+    print("Updating database")
+    # Get members from the guilds
+    guilds = [254779349352448001, 786690956514426910, 779429002657792020]
+    tasks = []
+    for guild_id in guilds:
+        guild = client.get_guild(guild_id)
+        members = guild.members
+        task = asyncio.create_task(update_database(members, guild))
+        tasks.append(task)
+    await asyncio.gather(*tasks)
+    print("Finished daily tasks")
 
 
 async def check_if_update_needed():  
