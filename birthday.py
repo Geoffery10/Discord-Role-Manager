@@ -41,8 +41,6 @@ async def check_user(user, role_handler):
         birthday = datetime.datetime.strptime(user.get_birthday(), "%m-%d").date()
     except ValueError:
         birthday = datetime.datetime.strptime(user.get_birthday(), "%m-%d-%Y").date()
-    
-        
 
     # Get the current date
     today = datetime.date.today()
@@ -81,7 +79,7 @@ async def check_user(user, role_handler):
         except Exception as e:
             print(f"Failed to remove role from user {user_id}")
             print(f"Error: {e}")
-    return
+
 
 async def find_next_birthday(guild): 
     # Get users from guild 

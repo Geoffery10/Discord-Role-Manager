@@ -123,6 +123,7 @@ async def update():
     for guild_id in guilds:
         guild = client.get_guild(guild_id)
         members = guild.members
+        print(f"Updating database for {guild.name}")
         task = asyncio.create_task(update_database(members, guild))
         tasks.append(task)
     await asyncio.gather(*tasks)
