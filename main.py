@@ -11,6 +11,8 @@ import json
 from birthday import *
 from update import update_database
 import threading
+from users import User
+from iDiscord import *
 
 intents = discord.Intents(messages=True, guilds=True, members=True, reactions=True, presences=True)
 intents.reactions = True
@@ -19,6 +21,7 @@ reaction_roles = {}
 pronouns = {":trap:763101905244389376": 796516467222511626,
             ":confused_anime:557426389180088340": 796516551364050975,
             ":drink_anime:557426135001202708": 796516609862139934}
+guilds = [254779349352448001, 779429002657792020, 786690956514426910]
 
 
 class MyClient(discord.Client):
@@ -26,13 +29,15 @@ class MyClient(discord.Client):
         super().__init__(*args, **kwargs)
         
     async def on_ready(self):
+        global guilds
         # Get the guild object
         guild = client.get_guild(254779349352448001)
         # Return early if the guild is None
         if guild is None:
             return
 
-        await tree.sync(guild=guild)
+        for sync_guild in guilds:
+            await tree.sync(guild=client.get_guild(sync_guild))
         print("Synced trees")
         # Get the message object
         channel = guild.get_channel(796511958189735966)
@@ -172,81 +177,41 @@ client = MyClient(intents=intents)
 tree = app_commands.CommandTree(client)
 
 # Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
-@tree.command(guild=discord.Object(id=254779349352448001))
+@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020)])
 @app_commands.describe(member='the member to add a birthday for')
-@app_commands.describe(birthday='the birthday to add in the format MM/DD')
+@app_commands.describe(birthday='the birthday to add in the format MM-DD')
 async def add_birthday(interaction: discord.Interaction, member: discord.Member, birthday: str):
-    # Check if the user has the appropriate role to add birthdays
-    '''
-    if not interaction.author.guild_permissions.manage_roles:
-        await interaction.send("You do not have the appropriate role to add birthdays.")
-        return
-    '''
-    # Check if the birthday is in the correct format (MM/DD) with regex
-    if not re.match(r"^(0[1-9]|1[0-2])/(0[1-9]|[12][0-9]|3[01])$", birthday):
-        await interaction.send("The birthday must be in the format MM/DD")
-        return
+    # Check if the birthday is in the correct format (MM/DD or MM-DD) with regex
+    if not re.match(r"^(0[1-9]|1[0-2])(/|-)(0[1-9]|[12][0-9]|3[01])$", birthday):
+        await interaction.send("The birthday must be in the format MM/DD or MM-DD")
+        return    
+
+    # Replace the separator with a dash (-) to standardize the format
+    birthday = birthday.replace("/", "-")
     
-    # Open the JSON file and load the data
-    with open("users.json") as f:
-        data = json.load(f)
+    # Get the user from the database
+    user = await get_user(member.id)
 
-    # Check if the user already has a birthday in the JSON file
-    for d in data:
-        if d["user_id"] == f'{member.id}':
-            await interaction.response.send_message("This user already has a birthday saved.")
-            return
+    # Check if the birthday is not "00-00"
+    if user.get_birthday() != "00-00":
+        old_birthday = user.get_birthday()
+        await interaction.response.send_message(f"Updated {member.name}'s birthday from {old_birthday} to {birthday}.", ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Added {member.name}'s birthday to the database.", ephemeral=True)
+    
+    # Update the user's birthday in the database
+    user.set_birthday(birthday)
+    await update_user(user_obj=user)
 
-    # Add the user's birthday to the JSON file
-    data.append(
-        {"user_id": f"{member.id}", "username": f"{member.name}", "birthday": f"{birthday}"})
-    print(data)
-    with open("users.json", "w") as f:
-        json.dump(data, f)
-    await interaction.response.send_message(f"Added {member.name}'s birthday to the database.")
-
-@tree.command(guild=discord.Object(id=254779349352448001), description="Get the next birthday")
+@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020)], description="Get the next birthday")
 async def next_birthday(interaction: discord.Interaction):
-    # Open the JSON file and load the data
-    with open("users.json") as f:
-        data = json.load(f)
-
-    # Get the current date
-    today = datetime.date.today()
-
-    # Initialize the next_birthday variable with a date in the future
-    # Use today's date as the default -1 day
-    next_birthday = datetime.date(3000, 1, 1)
-
-    # Initialize an empty list to store the users with the next birthday
-    next_birthday_users = []
-
-    # Iterate through each user in the data
-    for user in data:
-        # Get the user's birthday
-        birthday = datetime.datetime.strptime(user["birthday"], "%m/%d").date()
-        # Set the year to the current year
-        birthday = birthday.replace(year=today.year)
-        print(f"{user['username']} - {birthday} - {today} - {next_birthday}")
-
-        # Check if the user's birthday is in the future and is not today
-        if birthday > today and birthday < next_birthday:
-            # Update the next_birthday variable
-            next_birthday = birthday
-            next_birthday_users = []
-            # Add the user to the list of users with the next birthday
-            next_birthday_users.append(user["user_id"])
-        # Check if there is multiple people with the same birthday
-        elif birthday == next_birthday:
-            next_birthday_users.append(user["user_id"])
-    #get the user objects
-    user_objects = []
-    for user in next_birthday_users:
-        user_objects.append(await client.fetch_user(user))
-    user_names = [user.name for user in user_objects]
-    # format the message
-    message = f"The next birthday is on {next_birthday.strftime('%m/%d')} and belongs to: {', '.join(user_names)}."
-    await interaction.response.send_message(message)
+    users = await find_next_birthday(interaction.guild) # Returns a list of users (user: user_id, username, birthday)
+    if len(users) == 0:
+        await interaction.response.send_message("There are no birthdays in the database.", ephemeral=True)
+        return
+    else:
+        user_mentions = [f"<@{user.get_user_id()}>" for user in users]
+        await interaction.response.send_message(f"The next birthday is on {users[0].get_birthday()} and belongs to: {', '.join(user_mentions)}.", ephemeral=True)
 
     
 

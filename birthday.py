@@ -2,7 +2,9 @@ import json
 import datetime
 import random
 import sqlite3
+from iDiscord import get_guild_users
 from role_handler import RoleHandler
+from users import User
 
 birthday_messages = [
     "Happy birthday @USER! Wishing you all the best on your special day.",
@@ -86,3 +88,39 @@ async def check_user(user, role_handler):
             print(f"Failed to remove role from user {user_id}")
             print(f"Error: {e}")
     return
+
+async def find_next_birthday(guild): 
+    # Get users from guild 
+    users = await get_guild_users(guild.id)
+
+    # Get the current date
+    today = datetime.date.today()
+
+    # Get the next birthday
+    next_birthday = None
+    next_birthday_users = []
+    for user in users:
+        # Parse the user's birthday string into a date object
+        birthday = user.get_birthday_date()
+        if birthday is None:
+            continue
+
+        # Set the year of the birthday to the current year
+        birthday = birthday.replace(year=today.year)
+
+        # If the birthday is before today, set it to next year
+        if birthday < today:
+            birthday = birthday.replace(year=today.year + 1)
+
+        # If this is the first birthday we've found, set it as the next birthday
+        if next_birthday is None:
+            next_birthday = birthday
+            next_birthday_users = [user]
+        elif birthday < next_birthday:
+            next_birthday = birthday
+            next_birthday_users = [user]
+        elif birthday == next_birthday:
+            next_birthday_users.append(user)
+
+    return next_birthday_users # Returns a list of users with the next birthday (user_id, username, birthday)
+
