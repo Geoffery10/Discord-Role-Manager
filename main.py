@@ -21,7 +21,8 @@ reaction_roles = {}
 pronouns = {":trap:763101905244389376": 796516467222511626,
             ":confused_anime:557426389180088340": 796516551364050975,
             ":drink_anime:557426135001202708": 796516609862139934}
-guilds = [254779349352448001, 779429002657792020, 786690956514426910]
+guilds = [254779349352448001, 779429002657792020,
+          786690956514426910, 580445867132321798]
 
 
 class MyClient(discord.Client):
@@ -118,7 +119,7 @@ async def update():
     # Update the database for each guild
     print("Updating database")
     # Get members from the guilds
-    guilds = [254779349352448001, 786690956514426910, 779429002657792020]
+    global guilds
     tasks = []
     for guild_id in guilds:
         guild = client.get_guild(guild_id)
