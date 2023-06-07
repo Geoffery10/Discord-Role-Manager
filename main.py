@@ -111,7 +111,7 @@ import asyncio
 
 async def update():
     # Run Daily Tasks
-    print("Running daily tasks")
+    print("Running update tasks")
     # Update Birthday Roles
     print("Updating Birthday Roles")
     await check_birthday(guild=client.get_guild(254779349352448001))
@@ -127,7 +127,7 @@ async def update():
         task = asyncio.create_task(update_database(members, guild))
         tasks.append(task)
     await asyncio.gather(*tasks)
-    print("Finished daily tasks")
+    print("Finished update tasks")
 
 
 async def check_if_update_needed():  
