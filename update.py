@@ -26,6 +26,15 @@ async def update_database(members, guild):
                 conn.commit()
                 print("Updated tag for user: " + member.name)
 
+            # check if the user's username is different
+            c.execute("SELECT username FROM users WHERE user_id = ?", (member.id,))
+            username = c.fetchone()[0]
+            if username != member.name:
+                # Replace the username in the database with the new username
+                c.execute("UPDATE users SET username = ? WHERE user_id = ?", (member.name, member.id))
+                conn.commit()
+                print("Updated username for user: " + member.name)
+
         # Check if user_id is in the user_guilds table
         c.execute("SELECT user_id FROM user_guilds WHERE user_id = ? AND guild_id = ?", (member.id, guild.id))
         if c.fetchone() is None:

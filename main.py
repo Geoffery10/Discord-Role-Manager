@@ -213,6 +213,20 @@ async def next_birthday(interaction: discord.Interaction):
         user_mentions = [f"<@{user.get_user_id()}>" for user in users]
         await interaction.response.send_message(f"The next birthday is on {users[0].get_birthday()} and belongs to: {', '.join(user_mentions)}.", ephemeral=True)
 
+@tree.command(guilds=[discord.Object(id=786690956514426910)], description="Update DB")
+async def update_db(interaction: discord.Interaction):
+    await interaction.response.defer(thinking=True)
+    global guilds
+    print("Updating database")
+    for guild_id in guilds:
+        guild = client.get_guild(guild_id)
+        members = guild.members
+        await update_database(members, guild)
+        channel = interaction.channel
+        await channel.send(f"Updated database for {guild.name}.")
+    await interaction.followup.send("Finished updating database.")
+    print("Finished updating database")
+
     
 
 # Get the TOKEN variable from the environment
