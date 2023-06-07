@@ -2,7 +2,6 @@
 
 # Imports
 import sqlite3
-import datetime
 from users import User
 
 # Connect to the database
@@ -14,12 +13,12 @@ async def connect():
 # Get all users from the database
 async def get_users():
     conn, c = await connect()
-    c.execute("SELECT user_id, username, birthday FROM users")
+    c.execute("SELECT user_id, username, birthday, tag FROM users")
     users = c.fetchall()
     c.close()
     user_objs = []
     for user in users:
-        user_objs.append(User(user[0], user[1], user[2]))
+        user_objs.append(User(user_id=user[0], username=user[1], birthday=user[2], tag=user[3]))
     return user_objs
 
 # Get a user from the database
@@ -74,3 +73,52 @@ async def get_guild_users(guild_id):
     for user_data in users_data:
         user_objs.append(User(user_data[0], user_data[1], user_data[2], user_data[3]))
     return user_objs
+
+# Add user to a guild
+async def add_user_to_guild(user_id, guild_id):
+    if is_user_in_guild(user_id, guild_id):
+        print("User is already in guild")
+    else:
+        conn, c = await connect()
+        c.execute("INSERT INTO user_guilds VALUES (?, ?)", (user_id, guild_id))
+        conn.commit()
+        c.close()
+
+# Remove user from a guild
+async def remove_user_from_guild(user_id, guild_id):
+    conn, c = await connect()
+    c.execute("DELETE FROM user_guilds WHERE user_id = ? AND guild_id = ?", (user_id, guild_id))
+    conn.commit()
+    c.close()
+
+# Check if a user is in a guild
+async def is_user_in_guild(user_id, guild_id):
+    conn, c = await connect()
+    c.execute("SELECT user_id, guild_id FROM user_guilds WHERE user_id = ? AND guild_id = ?", (user_id, guild_id))
+    user_data = c.fetchone()
+    c.close()
+    if user_data:
+        return True
+    else:
+        return False
+    
+# Update user's tag
+async def update_user_tag(user_id, tag):
+    conn, c = await connect()
+    c.execute("UPDATE users SET tag = ? WHERE user_id = ?", (tag, user_id))
+    conn.commit()
+    c.close()
+
+# Update user's username
+async def update_user_username(user_id, username):
+    conn, c = await connect()
+    c.execute("UPDATE users SET username = ? WHERE user_id = ?", (username, user_id))
+    conn.commit()
+    c.close()
+
+# Update user's birthday
+async def update_user_birthday(user_id, birthday):
+    conn, c = await connect()
+    c.execute("UPDATE users SET birthday = ? WHERE user_id = ?", (birthday, user_id))
+    conn.commit()
+    c.close()
