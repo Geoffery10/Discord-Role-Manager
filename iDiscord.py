@@ -24,11 +24,11 @@ async def get_users():
 # Get a user from the database
 async def get_user(user_id):
     conn, c = await connect()
-    c.execute("SELECT user_id, username, birthday FROM users WHERE user_id = ?", (user_id,))
+    c.execute("SELECT user_id, username, birthday, tag FROM users WHERE user_id = ?", (user_id,))
     user_data = c.fetchone()
     c.close()
     if user_data:
-        user = User(user_data[0], user_data[1], user_data[2])
+        user = User(user_data[0], user_data[1], user_data[2], user_data[3])
         return user
     else:
         return None
