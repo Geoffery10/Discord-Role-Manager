@@ -54,61 +54,49 @@ class MyClient(discord.Client):
         for reaction in pronouns.keys():
             reaction_roles_trimmed.pop(reaction)
 
+        print(f"\tRolm is now online!")
+
     async def on_message(self, message):
         # Run update tasks in the background if it's a new day
         await check_if_update_needed()
 
     async def on_raw_reaction_add(self, payload):
-        print(f"Payload: {payload}")
-        # Get the user object
-        user = await client.fetch_user(payload.user_id)
-        if not user:
-            print(f"User {payload.user_id} not found")
-            return
-        # Get the message object
-        message = payload.message_id
-        guild = client.get_guild(payload.guild_id)
-        # Check if the reaction is on the specific message
-        if message in YOUR_MESSAGE_ID:
-            print(f"Reaction added by {user.name}")
-            for reaction, role_id in reaction_roles.items():
-                print(f"Reaction: {reaction}".encode("utf-8"))
-                print(f"Emoji: {payload.emoji.id}".encode("utf-8"))
+        # Check if the message was one of the ones we want
+        if payload.message_id in YOUR_MESSAGE_ID:
+            # Load roles from json file
+            with open("roles.json", "r") as f:
+                roles = json.load(f)
+            # Get reaction used and see if it's in the roles
+            for reaction, role_id in roles.items():
                 if str(payload.emoji.id) in reaction:
-                    role = discord.utils.get(guild.roles, id=role_id)
-                    member = await guild.fetch_member(user.id)
-                    if member is None:
-                        print(f"Member {user.name} not found")
-                        return
-                    await member.add_roles(role)
-                    return
-
+                    # Add the role to the user
+                    role = payload.member.guild.get_role(role_id)
+                    try:
+                        await payload.member.add_roles(role)
+                        print(f"Added role {role.name} ({role_id}) to {payload.member.name}")
+                    except:
+                        print(f"Failed to add role {role.name} ({role_id}) to {payload.member.name}")
+                    
+                    
     async def on_raw_reaction_remove(self, payload):
-        print(f"Payload: {payload}")
-        # Get the user object
-        user = await client.fetch_user(int(payload.user_id))
-        if not user:
-            print(f"User {payload.user_id} not found")
-            return
-        # Get the message object
-        message = payload.message_id
-        guild = client.get_guild(payload.guild_id)
-        # Check if the reaction is on the specific message
-        if message in YOUR_MESSAGE_ID:
-            print(f"Reaction removed by {user.name}")
-            for reaction, role_id in reaction_roles.items():
-                print(f"Reaction: {reaction}".encode("utf-8"))
-                print(f"Emoji: {payload.emoji.id}".encode("utf-8"))
+        # Check if the message was one of the ones we want
+        if payload.message_id in YOUR_MESSAGE_ID:
+            # Load roles from json file
+            with open("roles.json", "r") as f:
+                roles = json.load(f)
+            # Get reaction used and see if it's in the roles
+            for reaction, role_id in roles.items():
                 if str(payload.emoji.id) in reaction:
-                    role = discord.utils.get(guild.roles, id=role_id)
-                    member = await guild.fetch_member(user.id)
-                    if member is None:
-                        print(f"Member {user.name} not found")
-                        return
-                    await member.remove_roles(role)
-                    return
+                    # Remove the role from the user
+                    guild = client.get_guild(payload.guild_id)
+                    member = guild.get_member(payload.user_id)
+                    role = guild.get_role(role_id)
+                    try:
+                        await member.remove_roles(role)
+                        print(f"Removed role {role.name} ({role_id}) from {member.name}")
+                    except:
+                        print(f"Failed to remove role {role.name} ({role_id}) from {member.name}")
 
-import asyncio
 
 async def update():
     # Run Daily Tasks
