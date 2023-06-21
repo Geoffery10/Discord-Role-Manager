@@ -13,6 +13,12 @@ class RoleHandler:
             return f'Role or member ({user_id}) not found'
         await member.add_roles(role)
         return f'Role {role} has been added to user {member.name}'
+    
+    async def get_roles(self, user_id: int, guild_id: int) -> list:
+        member = await self.guild.fetch_member(user_id)
+        if member is None:
+            return []
+        return member.roles
 
     async def remove_role(self, user_id: int, role_id: int) -> str:
         role = self.guild.get_role(role_id)
