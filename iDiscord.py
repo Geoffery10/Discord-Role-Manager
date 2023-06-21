@@ -36,7 +36,8 @@ async def get_user(user_id):
 # Add a user to the database
 async def add_user(user_id, username, birthday="00-00", tag="1"):
     conn, c = await connect()
-    c.execute("INSERT INTO users VALUES (?, ?, ?, ?)", (user_id, username, birthday, tag))
+    c.execute("INSERT INTO users VALUES (?, ?, ?, ?)",
+              (username, birthday, tag, user_id))
     conn.commit()
     c.close()
 
