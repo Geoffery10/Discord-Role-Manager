@@ -1,0 +1,14 @@
+
+[project]
+name = ""
+version = ""
+description = ""
+authors = [
+    {name = "Geoffery10", email = "powellgeoffery@gmail.com"},
+]
+dependencies = [
+    "discord-py>=2.3.0",
+    "asyncio>=3.4.3",
+]
+requires-python = ">=3.10"
+license = {text = "MIT"}

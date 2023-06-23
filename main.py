@@ -3,8 +3,6 @@ import datetime
 import re
 import discord
 from discord import app_commands
-from discord.app_commands import Choice
-from discord.ext import commands
 from dotenv import load_dotenv
 import os
 import json
