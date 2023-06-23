@@ -1,0 +1,15 @@
+name: Test
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: pdm-project/setup-pdm@v3
+        name: Setup PDM
+      - name: Install dependencies
+        run: pdm install
+      - name: Run tests
+        run: pdm test
