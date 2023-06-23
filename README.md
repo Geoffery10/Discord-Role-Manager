@@ -1,3 +1,4 @@
+![rolm_2_Banner](https://github.com/Geoffery10/Discord-Role-Manager/assets/43981091/f93c96b8-fdb0-4969-922d-7e63c4c62b2b)
 
 # Discord-Role-Manager (Rolm)
 [![Pipeline](https://img.shields.io/github/actions/workflow/status/Geoffery10/Discord-Role-Manager/test.yml)](https://github.com/Geoffery10/Discord-Role-Manager/actions/workflows/test.yml)
