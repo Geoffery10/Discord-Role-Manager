@@ -39,8 +39,13 @@ class User:
         self._username = username
 
     def set_birthday(self, birthday):
-            if isinstance(birthday, str):
-                self._birthday = birthday
+            if isinstance(birthday, str):    
+                try:
+                    datetime.strptime(birthday, "%m-%d")
+                except ValueError:
+                    raise ValueError("Invalid birthday format. Please use a string in the format 'MM-DD' or a datetime object.")
+                else:
+                    self._birthday = birthday
             elif isinstance(birthday, datetime):
                 self._birthday = birthday.strftime("%m-%d")
             else:
