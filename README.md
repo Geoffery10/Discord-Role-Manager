@@ -31,8 +31,7 @@ This is a role manager for my personal Discord servers
 
 ## Contributing
 
-Interested in contributing? Feel free to reach out to me on my discord! geoffery10 <a href="https://discord.gg/yh7E5S3"><img align="center" width="18" height="18" src="https://cdn3.iconfinder.com/data/icons/popular-services-brands-vol-2/512/discord-128.png"></a>
-
+Interested in contributing? Feel free to reach out to me on my discord! geoffery10 <img align="center" width="18" height="18" src="https://cdn3.iconfinder.com/data/icons/popular-services-brands-vol-2/512/discord-128.png">
 
 ## Authors
 * Geoffery Powell - [Geoffery10](https://github.com/Geoffery10)
