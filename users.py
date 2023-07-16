@@ -39,6 +39,9 @@ class User:
         self._username = username
 
     def set_birthday(self, birthday):
+        if birthday == "00-00":
+            self._birthday = birthday
+        else:
             if isinstance(birthday, str):    
                 try:
                     datetime.strptime(birthday, "%m-%d")

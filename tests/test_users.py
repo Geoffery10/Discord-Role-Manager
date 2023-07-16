@@ -44,6 +44,10 @@ def test_set_birthday_invalid(user):
     with pytest.raises(ValueError):
         user.set_birthday("2022-02-02")
 
+def test_set_birthday_00_00(user):
+    user.set_birthday("00-00")
+    assert user.get_birthday() == "00-00"
+
 def test_set_tag(user):
     user.set_tag("2")
     assert user.get_tag() == "2"
