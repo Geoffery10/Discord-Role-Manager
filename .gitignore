@@ -1,5 +1,6 @@
 .env
 Thumbs.db
+*.db*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
@@ -138,3 +139,4 @@ discord.db
 last_update.json
 discord.db.BAK
 .pdm-python
+discord.db.bad
