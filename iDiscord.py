@@ -40,6 +40,7 @@ async def add_user(user_id, username, birthday="00-00", tag="1"):
               (username, birthday, tag, user_id))
     conn.commit()
     c.close()
+    return User(user_id, username, birthday, tag)
 
 # Update a user in the database
 async def update_user(user_obj = None, user_id = None, username = None, birthday="00-00", tag="1"):

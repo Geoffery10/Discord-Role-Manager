@@ -181,13 +181,17 @@ async def add_birthday(interaction: discord.Interaction, member: discord.Member,
     
     # Get the user from the database
     user = await get_user(member.id)
+    # If the user doesn't exist, add them to the database
+    if user is None:
+        user = await add_user(member.id, member.name, birthday, member.discriminator)
+        print("Added user: " + member.name)      
 
     # Check if the birthday is not "00-00"
     if user.get_birthday() != "00-00":
         old_birthday = user.get_birthday()
         await interaction.response.send_message(f"Updated {member.name}'s birthday from {old_birthday} to {birthday}.", ephemeral=True)
     else:
-        await interaction.response.send_message(f"Added {member.name}'s birthday to the database.", ephemeral=True)
+        await interaction.response.send_message(f"Added {member.name}'s birthday ({birthday}) to the database.", ephemeral=True)
     
     # Update the user's birthday in the database
     user.set_birthday(birthday)
