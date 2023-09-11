@@ -20,7 +20,7 @@ pronouns = {":trap:763101905244389376": 796516467222511626,
             ":confused_anime:557426389180088340": 796516551364050975,
             ":drink_anime:557426135001202708": 796516609862139934}
 guilds = [254779349352448001, 779429002657792020,
-          786690956514426910, 580445867132321798]
+          786690956514426910, 580445867132321798, 855809352420950016]
 
 
 class MyClient(discord.Client):
@@ -165,7 +165,9 @@ client = MyClient(intents=intents)
 tree = app_commands.CommandTree(client)
 
 # Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
-@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020)])
+
+
+@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020), discord.Object(id=855809352420950016)])
 @app_commands.describe(member='the member to add a birthday for')
 @app_commands.describe(birthday='the birthday to add in the format MM-DD')
 async def add_birthday(interaction: discord.Interaction, member: discord.Member, birthday: str):
@@ -191,7 +193,8 @@ async def add_birthday(interaction: discord.Interaction, member: discord.Member,
     user.set_birthday(birthday)
     await update_user(user_obj=user)
 
-@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020)], description="Get the next birthday")
+
+@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020), discord.Object(id=855809352420950016)], description="Get the next birthday")
 async def next_birthday(interaction: discord.Interaction):
     users = await find_next_birthday(interaction.guild) # Returns a list of users (user: user_id, username, birthday)
     if len(users) == 0:
