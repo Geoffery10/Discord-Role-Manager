@@ -3,6 +3,7 @@
 # Imports
 import sqlite3
 from users import User
+from utils.logger import log
 
 # Connect to the database
 async def connect():
@@ -78,13 +79,15 @@ async def get_guild_users(guild_id):
 
 # Add user to a guild
 async def add_user_to_guild(user_id, guild_id):
-    if is_user_in_guild(user_id, guild_id):
-        print("User is already in guild")
+    if await is_user_in_guild(user_id, guild_id):
+        # await log(type="debug", message="User is already in guild")
+        pass
     else:
         conn, c = await connect()
         c.execute("INSERT INTO user_guilds VALUES (?, ?)", (user_id, guild_id))
         conn.commit()
         c.close()
+        await log(type="debug", message=f"Added user: {user_id} to guild {guild_id}")
 
 # Remove user from a guild
 async def remove_user_from_guild(user_id, guild_id):

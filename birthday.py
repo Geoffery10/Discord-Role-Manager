@@ -3,6 +3,7 @@ import random
 from iDiscord import *
 from role_handler import RoleHandler
 from users import User
+from utils.logger import log
 
 birthday_messages = [
     "Happy birthday @USER! Wishing you all the best on your special day.",
@@ -26,10 +27,10 @@ async def check_birthday(guild):
     # Check if the user has a birthday in the database
     if not users is None:
         for user in users:
-            print(f"Checking if it's {user.get_username()}'s birthday today...")
+            await log(type="debug", message=f"Checking if it's {user.get_username()}'s birthday today...")
             await check_user(user, role_handler)
 
-    print("Checked all users")
+    await log(type="info", message="Checked all users")
 
 
 async def check_user(user, role_handler):
@@ -54,7 +55,7 @@ async def check_user(user, role_handler):
         role_id = 961688424341987409
         try:
             message = await role_handler.add_role(user_id, role_id)
-            print(message.encode('utf-8'))
+            await log(type="info", message=message.encode('utf-8'))
             # Send a random birthday message to the general channel
             # Get the general channel by id from the guild
             general_channel = role_handler.guild.get_channel(254779349352448001)
@@ -65,8 +66,8 @@ async def check_user(user, role_handler):
             # Send the message to the general channel
             await general_channel.send(message)
         except Exception as e:
-            print(f"Failed to add role to user {user_id}")
-            print(f"Error: {e}")
+            await log(type="info", message=f"Failed to add role to user {user_id}")
+            await log(type="info", message=f"Error: {e}")
     else:
         # Get the user's id
         user_id = user.get_user_id()
@@ -75,10 +76,10 @@ async def check_user(user, role_handler):
         role_id = 961688424341987409
         try:
             message = await role_handler.remove_role(user_id, role_id)
-            print(message.encode('utf-8'))
+            await log(type="info", message=message.encode('utf-8'))
         except Exception as e:
-            print(f"Failed to remove role from user {user_id}")
-            print(f"Error: {e}")
+            await log(type="error",
+                message=f"Failed to remove role from user {user_id}. Error: {e}", severity="high")
 
 
 async def find_next_birthday(guild): 

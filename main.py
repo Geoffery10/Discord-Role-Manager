@@ -7,10 +7,11 @@ from dotenv import load_dotenv
 import os
 import json
 from birthday import *
-from update import update_database
+from update import update_database, check_if_update_needed
 import threading
 from users import User
 from iDiscord import *
+from utils.logger import log
 
 intents = discord.Intents(messages=True, guilds=True, members=True, reactions=True, presences=True)
 intents.reactions = True
@@ -35,9 +36,10 @@ class MyClient(discord.Client):
         if guild is None:
             return
 
+        await log(type="info", message=f"Syncing trees...")
         for sync_guild in guilds:
             await tree.sync(guild=client.get_guild(sync_guild))
-        print("Synced trees")
+        await log(type="info", message="Synced trees")
         # Get the message object
         channel = guild.get_channel(796511958189735966)
         pronouns_message = await channel.fetch_message(YOUR_MESSAGE_ID[0])
@@ -52,7 +54,7 @@ class MyClient(discord.Client):
         for reaction in pronouns.keys():
             reaction_roles_trimmed.pop(reaction)
 
-        print(f"\tRolm is now online!")
+        await log(type="info", message=f"Rolm is now online!")
 
     async def on_message(self, message):
         # Run update tasks in the background if it's a new day
@@ -71,9 +73,12 @@ class MyClient(discord.Client):
                     role = payload.member.guild.get_role(role_id)
                     try:
                         await payload.member.add_roles(role)
-                        print(f"Added role {role.name} ({role_id}) to {payload.member.name}")
-                    except:
-                        print(f"Failed to add role {role.name} ({role_id}) to {payload.member.name}")
+                        await log(type="info",
+                            message=f"Added role {role.name} ({role_id}) to {payload.member.name}")
+                    except Exception as e:
+                        await log(type="error",
+                            message=f"Failed to add role {role.name} ({role_id}) to {payload.member.name}")
+                        await log(type="error", message=f"Error: {e}", severity="medium")
                     
                     
     async def on_raw_reaction_remove(self, payload):
@@ -91,67 +96,33 @@ class MyClient(discord.Client):
                     role = guild.get_role(role_id)
                     try:
                         await member.remove_roles(role)
-                        print(f"Removed role {role.name} ({role_id}) from {member.name}")
+                        await log(type="info",
+                            message=f"Removed role {role.name} ({role_id}) from {member.name}")
                     except:
-                        print(f"Failed to remove role {role.name} ({role_id}) from {member.name}")
-
-
-async def update():
-    # Run Daily Tasks
-    print("Running update tasks")
-    # Update Birthday Roles
-    print("Updating Birthday Roles")
-    await check_birthday(guild=client.get_guild(254779349352448001))
-    # Update the database for each guild
-    print("Updating database")
-    # Get members from the guilds
-    global guilds
-    tasks = []
-    for guild_id in guilds:
-        guild = client.get_guild(guild_id)
-        members = guild.members
-        print(f"Updating database for {guild.name}")
-        task = asyncio.create_task(update_database(members, guild))
-        tasks.append(task)
-    await asyncio.gather(*tasks)
-    print("Finished update tasks")
-
-
-async def check_if_update_needed():  
-    # Load last_update from a JSON file to check if it's a new day
-    with open("last_update.json") as f:
-        last_update = json.load(f)
-    # Get the current date
-    today = datetime.date.today()
-    # Parse current date to a string 00/00/0000
-    today = today.strftime("%m/%d/%Y")
-    # Check if it's a new day
-    if today != last_update["last_update"]:
-        # Update last_update in the JSON file
-        with open("last_update.json", "w") as f:
-            json.dump({"last_update": today}, f)
-        # Run the update tasks in the background
-        await update()
+                        await log(type="error",
+                            message=f"Failed to remove role {role.name} ({role_id}) from {member.name}", severity="medium")
+                        
 
 async def add_reactions(message, roles):
     for reaction, role_id in roles.items():
         if reaction not in [r.emoji for r in message.reactions]:
             try:
                 await message.add_reaction(reaction)
-                # print(f"Added reaction {reaction} to message {message.id}")
+                # await log(type="info", message=f"Added reaction {reaction} to message {message.id}")
             except discord.HTTPException:
-                print(
-                    f"Failed to add reaction {reaction} to message {message.id}")
+                await log(type="error",
+                    message=f"Failed to add reaction {reaction} to message {message.id}. HTTPException", severity="medium")
             # Sleep to avoid rate limit
             # asyncio.sleep(1)
 
-def print_reaction_roles():
+
+async def print_reaction_roles():
     # Print role reactions with names
     # Use ID to get the role object
     guild = client.get_guild(254779349352448001)
     for reaction, role_id in reaction_roles.items():
         role = discord.utils.get(guild.roles, id=role_id)
-        print(f"<{reaction}> - {role.name}")
+        await log(f"<{reaction}> - {role.name}")
 
 
 # Load the contents of the .env file into the environment
@@ -184,16 +155,18 @@ async def add_birthday(interaction: discord.Interaction, member: discord.Member,
     # If the user doesn't exist, add them to the database
     if user is None:
         user = await add_user(member.id, member.name, birthday, member.discriminator)
-        print("Added user: " + member.name)      
+        await log(type="debug", message="Added user: " + member.name)
 
     # Check if the birthday is not "00-00"
     if user.get_birthday() != "00-00":
         old_birthday = user.get_birthday()
         await interaction.response.send_message(f"Updated {member.name}'s birthday from {old_birthday} to {birthday}.", ephemeral=True)
-        print(f"Updated {member.name}'s birthday from {old_birthday} to {birthday}.")
+        await log(type="info",
+            message=f"Updated {member.name}'s birthday from {old_birthday} to {birthday}.")
     else:
         await interaction.response.send_message(f"Added {member.name}'s birthday ({birthday}) to the database.", ephemeral=True)
-        print(f"Added {member.name}'s birthday ({birthday}) to the database.")
+        await log(type="info",
+            message=f"Added {member.name}'s birthday ({birthday}) to the database.")
 
     # Update the user's birthday in the database
     user.set_birthday(birthday)
@@ -214,7 +187,7 @@ async def next_birthday(interaction: discord.Interaction):
 async def update_db(interaction: discord.Interaction):
     await interaction.response.defer(thinking=True)
     global guilds
-    print("Updating database")
+    await log(type="info", message="Updating database")
     for guild_id in guilds:
         guild = client.get_guild(guild_id)
         members = guild.members
@@ -222,7 +195,7 @@ async def update_db(interaction: discord.Interaction):
         channel = interaction.channel
         await channel.send(f"Updated database for {guild.name}.")
     await interaction.followup.send("Finished updating database.")
-    print("Finished updating database")
+    await log(type="info", message="Finished updating database")
 
     
 
