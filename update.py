@@ -4,18 +4,21 @@ import asyncio
 import datetime
 from utils.logger import log
 import json
+from birthday import check_birthday
 
 
-async def update():
+async def update(client, guilds):
     # Run Daily Tasks
     await log(type="info", message="Running update tasks")
     # Update Birthday Roles
     await log(type="info", message="Updating Birthday Roles")
-    await check_birthday(guild=client.get_guild(254779349352448001))
+    for guild_id in guilds:
+        await log(type="info", message=f"Updating birthday roles for {client.get_guild(guild_id).name}")
+        await check_birthday(client.get_guild(guild_id))
     # Update the database for each guild
     await log(type="info", message="Updating database")
     # Get members from the guilds
-    global guilds
+    
     tasks = []
     for guild_id in guilds:
         guild = client.get_guild(guild_id)
@@ -27,7 +30,8 @@ async def update():
     await log(type="info", message="Finished update tasks")
 
 
-async def check_if_update_needed():
+async def check_if_update_needed(client, guilds):
+    await log(type="info", message="Checking if update is needed")
     # Load last_update from a JSON file to check if it's a new day
     with open("last_update.json") as f:
         last_update = json.load(f)
@@ -38,10 +42,14 @@ async def check_if_update_needed():
     # Check if it's a new day
     if today != last_update["last_update"]:
         # Update last_update in the JSON file
-        with open("last_update.json", "w") as f:
-            json.dump({"last_update": today}, f)
+        DEBUG = False
+        if DEBUG is False:
+            with open("last_update.json", "w") as f:
+                json.dump({"last_update": today}, f)
+        else:
+            await log(type="debug", message="DEBUG MODE: Not updating last_update.json", severity="high")
         # Run the update tasks in the background
-        await update()
+        await update(client, guilds)
 
 
 async def update_database(members, guild):

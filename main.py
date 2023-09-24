@@ -58,7 +58,8 @@ class MyClient(discord.Client):
 
     async def on_message(self, message):
         # Run update tasks in the background if it's a new day
-        await check_if_update_needed()
+        global guilds
+        await check_if_update_needed(client, guilds)
 
     async def on_raw_reaction_add(self, payload):
         # Check if the message was one of the ones we want
