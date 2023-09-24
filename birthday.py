@@ -103,9 +103,6 @@ async def check_user(user, role_handler, guild, guild_info):
         message = random.choice(birthday_messages)
         # Replace the @USER tag with @mention for the user
         message = message.replace("@USER", f"<@{user_id}>")
-        DEBUG = True
-        if DEBUG:
-            message = f"Happy birthday <@{user_id}>! TESTING TESTING TESTING"
         # Send the message to the general channel
         try:
             await birthday_channel.send(message)
