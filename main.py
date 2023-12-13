@@ -1,5 +1,3 @@
-import asyncio
-import datetime
 import re
 import discord
 from discord import app_commands
@@ -8,8 +6,6 @@ import os
 import json
 from birthday import *
 from update import update_database, check_if_update_needed
-import threading
-from users import User
 from iDiscord import *
 from utils.logger import log
 
