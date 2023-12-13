@@ -25,10 +25,8 @@ async def check_birthday(guild):
     # Get all the users_id, username, and birthday from the database
     users = await get_users()
     
-    # Remove users that are not in the guild
-    for user in users:
-        if guild.get_member(int(user.get_user_id())) is None:
-            users.remove(user)
+    # Keep only users that are in the guild
+    users = [user for user in users if guild.get_member(int(user.get_user_id())) is not None]
     
     # Load birthday json for guild
     try:
@@ -84,7 +82,7 @@ async def check_user(user, role_handler, guild, guild_info):
 
         # Get the birthday role id
         role_id = int(guild_info.get("birthday_role"))
-        if role_id is not -1:
+        if role_id != -1:
             try:
                 message = await role_handler.add_role(user_id, role_id)
                 await log(type="info", message=message)
@@ -115,7 +113,7 @@ async def check_user(user, role_handler, guild, guild_info):
 
         # Get the birthday role id
         role_id = int(guild_info.get("birthday_role"))
-        if role_id is not -1:
+        if role_id != -1:
             try:
                 message = await role_handler.remove_role(user_id, int(role_id))
                 await log(type="info", message=message.encode('utf-8'))
