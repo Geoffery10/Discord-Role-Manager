@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["cross_platform"]
 lock_version = "4.4.1"
-content_hash = "sha256:cffb5b85fa7f158cd2a6832923d4bd6a449d9eef47bb535641ce41c8361365a2"
+content_hash = "sha256:a8a4292a6788f0cd944cc25b81b7a05c4dd0045b843bc0adada48ff6c14cac73"
 
 [[package]]
 name = "aiohttp"
@@ -144,14 +144,6 @@ dependencies = [
 files = [
     {file = "discord.py-2.2.2-py3-none-any.whl", hash = "sha256:38fc52a784727b8e5e5749267089400035b187a009028eddfabeb182abcc6d52"},
     {file = "discord.py-2.2.2.tar.gz", hash = "sha256:b9944056bcb5711b2d04088848fd004466cf117c15c84fa798bf55470f28275f"},
-]
-
-[[package]]
-name = "dotenv"
-version = "0.0.5"
-summary = "Handle .env files"
-files = [
-    {file = "dotenv-0.0.5.tar.gz", hash = "sha256:b58d2ab3f83dbd4f8a362b21158a606bee87317a9444485566b3c8f0af847091"},
 ]
 
 [[package]]
