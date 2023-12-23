@@ -7,12 +7,13 @@ authors = [
     {name = "Geoffery10", email = "powellgeoffery@gmail.com"},
 ]
 dependencies = [
-    "discord.py=2.2.2",
+    "discord.py==2.2.2",
     "asyncio>=3.4.3",
     "aiosignal==1.3.1",
     "async-timeout==4.0.2",
     "aiohttp>=3.8.4",
-    "frozenlist>=1.3.3"
+    "frozenlist>=1.3.3",
+    "discord>=2.2.2",
 ]
 requires-python = ">=3.10"
 license = {text = "MIT"}
