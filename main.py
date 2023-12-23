@@ -1,7 +1,6 @@
 import re
 import discord
 from discord import app_commands
-from dotenv import load_dotenv
 import os
 import json
 from birthday import *
@@ -127,8 +126,6 @@ async def print_reaction_roles():
 with open("roles.json") as f:
     reaction_roles = json.load(f)
 
-load_dotenv()
-
 client = MyClient(intents=intents)
 tree = app_commands.CommandTree(client)
 
@@ -197,5 +194,16 @@ async def update_db(interaction: discord.Interaction):
     
 
 # Get the TOKEN variable from the environment
-TOKEN = os.getenv("TOKEN")
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    TOKEN = os.getenv("TOKEN")
+except:
+    await log(type="error", message="Failed to load .env file", severity="severe")
+    # Load the contents of the .env file as plain text
+    with open(".env") as f:
+        TOKEN = f.read()
+    # Remove TOKEN= from the beginning of the file
+    TOKEN = TOKEN[6:]
+
 client.run(TOKEN)
