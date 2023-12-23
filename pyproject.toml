@@ -13,6 +13,7 @@ dependencies = [
     "aiohttp>=3.8.4",
     "frozenlist>=1.3.3",
     "discord==2.2.2",
+    "dotenv>=0.0.5",
     "python-dotenv>=1.0.0",
     "colorama>=0.4.6",
 ]
