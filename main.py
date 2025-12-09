@@ -134,7 +134,7 @@ tree = app_commands.CommandTree(client)
 # Add the guild ids in which the slash command will appear. If it should be in all, remove the argument, but note that it will take some time (up to an hour) to register the command if it's for all guilds.
 
 
-@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020), discord.Object(id=855809352420950016)])
+@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020), discord.Object(id=855809352420950016), discord.Object(id=1413215067398475941)])
 @app_commands.describe(member='the member to add a birthday for')
 @app_commands.describe(birthday='the birthday to add in the format MM-DD')
 async def add_birthday(interaction: discord.Interaction, member: discord.Member, birthday: str):
@@ -169,7 +169,7 @@ async def add_birthday(interaction: discord.Interaction, member: discord.Member,
     await update_user(user_obj=user)
 
 
-@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020), discord.Object(id=855809352420950016)], description="Get the next birthday")
+@tree.command(guilds=[discord.Object(id=254779349352448001), discord.Object(id=786690956514426910), discord.Object(id=779429002657792020), discord.Object(id=855809352420950016), discord.Object(id=1413215067398475941)], description="Get the next birthday")
 async def next_birthday(interaction: discord.Interaction):
     users = await find_next_birthday(interaction.guild) # Returns a list of users (user: user_id, username, birthday)
     if len(users) == 0:
