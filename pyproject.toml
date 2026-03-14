@@ -15,6 +15,7 @@ dependencies = [
     "discord==2.2.2",
     "python-dotenv==1.0.0",
     "colorama>=0.4.6",
+    "yarl>=1.10.0",
 ]
 requires-python = ">=3.10"
 license = {text = "MIT"}
