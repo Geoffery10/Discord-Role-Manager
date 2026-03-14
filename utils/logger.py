@@ -1,11 +1,14 @@
 # Takes in log type, severity, and message and logs it neatly to the console
 
 import datetime
-from colorama import Fore, Back, Style
+from colorama import Fore
 import re
-import json
-import aiohttp
-import os
+
+try:
+    import aiohttp
+except ImportError:  # pragma: no cover
+    aiohttp = None
+
 
 
 async def log(type, message, severity=""):
