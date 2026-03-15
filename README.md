@@ -14,20 +14,26 @@ This is a role manager for my personal Discord servers
 * [License](#license)
 
 ## Getting Started
-1. Clone or Download the Repo
-2. Install Python (v3.10 recommended)
-3. Run `pdm install` from your terminal inside the installed folder.
-4. Edit `roles.json` to contain all the roles you'd like to manage with emojis.
-5. Run `run.bat` to start bot.
+1. Clone or download the repository.
+2. Ensure you have Python 3.10+ installed.
+3. Install the project dependencies with `pdm install`.
+4. (Optional) Install development dependencies for testing: `pdm install -d`.
+5. Configure `roles.json` with the roles you want to manage and their associated emojis.
+6. To run the bot, execute `pdm run` (or `run.bat` on Windows).
+
+## Running Tests
+After installing the development dependencies, you can run the test suite with:
+```bash
+pdm test
+```
+or directly with pytest:
+```bash
+pytest
+```
 
 #### Reasons your install failed: 
 
 * Missing pdm (Install pdm using `pip install pdm`)
-
-## Built With
-
-* [Visual Studio Code](https://code.visualstudio.com/)
-* [Python 3.10.4](https://www.python.org/)
 
 ## Contributing
 
