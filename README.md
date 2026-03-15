@@ -37,4 +37,5 @@ Interested in contributing? Feel free to reach out to me on my discord! geoffery
 * Geoffery Powell - [Geoffery10](https://github.com/Geoffery10)
 
 ## License
-Discord Role Manager Lincense Coming Soon
+
+This project is licensed under the **GNU General Public License v3.0** – see the [LICENSE](LICENSE) file for details.
