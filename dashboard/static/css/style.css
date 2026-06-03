@@ -71,8 +71,11 @@ body {
   border-bottom: 1px solid var(--border);
 }
 .topbar h1 { font-size: 22px; }
-.meta { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-muted); }
-.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); }
+.meta { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text-muted); }
+.status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent-2); flex-shrink: 0; }
+.meta-label, .meta-info { display: inline-flex; align-items: center; line-height: 1; }
+.meta-sep { color: var(--border); margin: 0 2px; display: inline-flex; align-items: center; line-height: 1; }
+.meta-info { font-family: "Fira Code", "Consolas", monospace; }
 
 /* Tabs */
 .tab { display: none; padding: 20px 24px; overflow-y: auto; flex: 1; }
@@ -94,6 +97,8 @@ body {
 .card h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-muted); margin-bottom: 8px; }
 .card .big { font-size: 32px; font-weight: 700; }
 
+.chart-card { padding: 18px; }
+
 .panel {
   background: var(--bg-card);
   border: 1px solid var(--border);
@@ -103,7 +108,7 @@ body {
 .panel h2 { font-size: 16px; margin-bottom: 12px; }
 
 .birthday-highlight {
-  font-size: 18px;
+  font-size: 15px;
   padding: 12px;
   background: rgba(67,181,129,.08);
   border: 1px solid rgba(67,181,129,.25);
@@ -119,19 +124,56 @@ body {
 .birthday-highlight li {
   padding: 8px 0;
   border-bottom: 1px solid rgba(67,181,129,.1);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
 }
 
 .birthday-highlight li:last-child {
   border-bottom: none;
 }
 
-#birthday-chart-container {
-  margin-top: 20px;
+.bday-row-left {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.bday-name {
+  font-weight: 600;
+}
+
+.bday-meta {
+  color: var(--text-muted);
+  font-size: 14px;
+}
+
+.today-badge {
+  color: var(--accent-2);
+  font-weight: 700;
+}
+
+.bday-id {
+  color: var(--text-muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.chart-card { margin-top: 20px; padding: 18px; }
+
+.chart-card h2 { font-size: 16px; margin-bottom: 12px; }
+
+.chart-wrap {
+  position: relative;
+  height: 260px;
+  width: 100%;
 }
 
 #birthdayChart {
   width: 100%;
-  height: 200px;
+  height: 100%;
 }
 
 /* Tables */

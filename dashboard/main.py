@@ -2,6 +2,8 @@ import os
 import sys
 import json
 import sqlite3
+import socket
+import subprocess
 from pathlib import Path
 from datetime import datetime, date
 
@@ -28,6 +30,52 @@ DB_PATH = PROJECT_ROOT / "discord.db"
 ROLES_PATH = PROJECT_ROOT / "roles.json"
 BIRTHDAY_PATH = PROJECT_ROOT / "birthday.json"
 LOG_PATH = PROJECT_ROOT / "rolm.log"
+
+# ------------------------------------------------------------------
+# Meta helpers
+# ------------------------------------------------------------------
+def _get_git_commit():
+    try:
+        out = subprocess.check_output(
+            ["git", "rev-parse", "--short", "HEAD"],
+            cwd=PROJECT_ROOT,
+            stderr=subprocess.DEVNULL,
+            text=True,
+        )
+        return out.strip()
+    except Exception:
+        return "unknown"
+
+
+def _get_server_ip():
+    try:
+        hostname = socket.gethostname()
+        addrs = socket.getaddrinfo(hostname, None)
+        ips = set()
+        for a in addrs:
+            sockaddr = a[4]
+            ip = sockaddr[0]
+            if isinstance(ip, str) and not ip.startswith("127.") and ":" not in ip:
+                ips.add(ip)
+        if ips:
+            return ", ".join(sorted(ips))
+        # fallback to primary interface
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.settimeout(0)
+        try:
+            s.connect(("10.254.254.254", 1))
+            ip = s.getsockname()[0]
+        except Exception:
+            ip = "127.0.0.1"
+        finally:
+            s.close()
+        return ip
+    except Exception:
+        return "unknown"
+
+
+GIT_COMMIT = _get_git_commit()
+SERVER_IP = _get_server_ip()
 
 # ------------------------------------------------------------------
 # Helpers
@@ -59,6 +107,16 @@ async def index(request: Request):
     return templates.TemplateResponse(request, "index.html")
 
 # ------------------------------------------------------------------
+# API: Meta
+# ------------------------------------------------------------------
+@app.get("/api/meta")
+async def meta():
+    return {
+        "commit": GIT_COMMIT,
+        "ip": SERVER_IP,
+    }
+
+# ------------------------------------------------------------------
 # API: Stats
 # ------------------------------------------------------------------
 @app.get("/api/stats")
@@ -74,6 +132,9 @@ async def stats():
 
     c.execute("SELECT COUNT(*) FROM user_guilds")
     member_count = c.fetchone()[0]
+
+    c.execute("SELECT COUNT(*) FROM users WHERE birthday != '00-00'")
+    birthday_count = c.fetchone()[0]
 
     conn.close()
 
@@ -93,6 +154,7 @@ async def stats():
         "members": member_count,
         "reaction_roles": role_count,
         "birthday_guilds": len(birthday_cfg.get("guilds", [])),
+        "birthdays": birthday_count,
     }
 
 # ------------------------------------------------------------------

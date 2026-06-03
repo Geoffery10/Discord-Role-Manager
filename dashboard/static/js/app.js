@@ -28,11 +28,24 @@ tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 async function loadStats() {
   const r = await fetch('/api/stats');
   const d = await r.json();
+  document.getElementById('stat-birthdays').textContent = d.birthdays;
   document.getElementById('stat-users').textContent = d.users;
-  document.getElementById('stat-guilds').textContent = d.guilds;
   document.getElementById('stat-members').textContent = d.members;
+  document.getElementById('stat-guilds').textContent = d.guilds;
   document.getElementById('stat-roles').textContent = d.reaction_roles;
   loadNextBirthday();
+  loadMeta();
+}
+
+async function loadMeta() {
+  try {
+    const r = await fetch('/api/meta');
+    const d = await r.json();
+    document.getElementById('meta-commit').textContent = d.commit || '—';
+    document.getElementById('meta-ip').textContent = d.ip || '—';
+  } catch (e) {
+    console.error('Meta fetch failed:', e);
+  }
 }
 
 // Load next birthday for overview panel
@@ -199,6 +212,7 @@ async function loadRoles() {
   if (roleGuildsList.length) {
     sel.value = roleGuildsList[0].id;
     selectedRoleGuild = roleGuildsList[0].id;
+    await fetch('/api/roles/refresh', { method: 'POST' });
     await onRoleGuildChange();
   } else {
     allRoles = [];
@@ -218,6 +232,7 @@ async function loadBirthdays(monthFilter) {
 
 function updateNextBirthdayPanel(birthdays) {
   const today = new Date();
+  today.setHours(0, 0, 0, 0);
   const upcoming = birthdays.filter(b => {
     const bd = new Date(today.getFullYear(), b.month-1, b.day);
     if (bd < today) bd.setFullYear(today.getFullYear()+1);
@@ -233,12 +248,84 @@ function updateNextBirthdayPanel(birthdays) {
   const container = document.getElementById('upcoming-birthdays');
   if (upcoming.length) {
     const nextFive = upcoming.slice(0, 5);
-    container.innerHTML = '<ul>' + nextFive.map(b =>
-      `<li><strong>${escapeHtml(b.username)}</strong> on ${b.birthday} (ID: ${b.user_id})</li>`
-    ).join('') + '</ul>';
+    container.innerHTML = '<ul>' + nextFive.map(b => {
+      const dateA = new Date(today.getFullYear(), b.month-1, b.day);
+      if (dateA < today) dateA.setFullYear(today.getFullYear()+1);
+      const diffMs = dateA - today;
+      const daysUntil = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+      const daysText = daysUntil === 0
+        ? '<span class="today-badge">Today!</span>'
+        : `<span class="bday-meta">(${daysUntil} day${daysUntil !== 1 ? 's' : ''})</span>`;
+      return `<li>
+        <div class="bday-row-left">
+          ${renderAvatar(b.user_id, b.avatar)}
+          <span class="bday-name">${escapeHtml(b.username)}</span>
+          <span class="bday-meta">${b.birthday} ${daysText}</span>
+        </div>
+        <span class="bday-id">(ID: ${b.user_id})</span>
+      </li>`;
+    }).join('') + '</ul>';
   } else {
     container.textContent = 'No upcoming birthdays found.';
   }
+
+  renderBirthdayChart(birthdays);
+}
+
+function renderBirthdayChart(birthdays) {
+  // Count birthdays per month (1-12)
+  const monthCounts = Array(12).fill(0);
+  birthdays.forEach(b => {
+    if (b.month && b.month > 0) {
+      monthCounts[b.month - 1]++;
+    }
+  });
+
+  // Destroy existing chart if it exists
+  if (window.birthdayChart instanceof Chart) {
+    window.birthdayChart.destroy();
+  }
+
+  const ctx = document.getElementById('birthdayChart').getContext('2d');
+  window.birthdayChart = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+      datasets: [{
+        label: 'Birthdays',
+        data: monthCounts,
+        backgroundColor: '#5865F2',
+        borderColor: '#5865F2',
+        borderWidth: 1,
+        borderRadius: 4
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: function(context) {
+              return context.parsed.y + ' birthday' + (context.parsed.y !== 1 ? 's' : '');
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(255,255,255,0.05)' },
+          ticks: { color: '#999' }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { precision: 0, color: '#999' },
+          grid: { color: 'rgba(255,255,255,0.05)' }
+        }
+      }
+    }
+  });
 }
 
 let birthdaySort = { key: 'days_till', dir: 'asc' };

@@ -27,24 +27,32 @@
   <header class="topbar">
     <h1 id="page-title">Overview</h1>
     <div class="meta">
-      <span class="status-dot online"></span> Online
+      <span class="status-dot online"></span>
+      <span class="meta-label">Online</span>
+      <span class="meta-sep">|</span>
+      <span id="meta-commit" class="meta-info" title="Git commit">—</span>
+      <span class="meta-sep">|</span>
+      <span id="meta-ip" class="meta-info" title="Server IP">—</span>
     </div>
   </header>
 
   <!-- Overview -->
   <section id="tab-overview" class="tab active">
     <div class="cards">
-      <div class="card"><h3>Users</h3><p class="big" id="stat-users">-</p></div>
+      <div class="card"><h3>Birthdays</h3><p class="big" id="stat-birthdays">-</p></div>
+      <div class="card"><h3>Users (Unique)</h3><p class="big" id="stat-users">-</p></div>
+      <div class="card"><h3>Users (Total)</h3><p class="big" id="stat-members">-</p></div>
       <div class="card"><h3>Guilds</h3><p class="big" id="stat-guilds">-</p></div>
-      <div class="card"><h3>Members</h3><p class="big" id="stat-members">-</p></div>
-      <div class="card"><h3>Reaction Roles</h3><p class="big" id="stat-roles">-</p></div>
+      <div class="card"><h3>Roles</h3><p class="big" id="stat-roles">-</p></div>
     </div>
     <div class="panel">
       <h2>Upcoming Birthdays</h2>
       <div id="upcoming-birthdays" class="birthday-highlight">Loading...</div>
-      <div id="birthday-chart-container">
-        <h3>Birthdays by Month</h3>
-        <canvas id="birthdayChart" width="400" height="200"></canvas>
+    </div>
+    <div class="card chart-card">
+      <h2>Birthdays by Month</h2>
+      <div class="chart-wrap">
+        <canvas id="birthdayChart"></canvas>
       </div>
     </div>
   </section>
@@ -138,17 +146,16 @@
 </main>
 
 <script src="/static/js/default_emojis.js"></script>
-<script src="/static/js/app.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/static/js/app.js"></script>
 <script>
-// Debug: Check if Chart.js is loaded
-document.addEventListener('DOMContentLoaded', function() {
-  if (typeof Chart === 'undefined') {
-    console.error('Chart.js failed to load');
-  } else {
-    console.log('Chart.js loaded successfully');
-  }
-});
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof Chart === 'undefined') {
+      console.error('Chart.js failed to load');
+    } else {
+      console.log('Chart.js loaded successfully');
+    }
+  });
 </script>
 </body>
 </html>
