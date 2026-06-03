@@ -26,6 +26,15 @@ def _ensure_schema():
     if "avatar" not in cols:
         c.execute("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT NULL")
         conn.commit()
+    # Ensure guilds.id is a PRIMARY KEY so INSERT OR REPLACE deduplicates properly
+    c.execute("PRAGMA table_info(guilds)")
+    pk_cols = [row[1] for row in c.fetchall() if row[5]]
+    if not pk_cols:
+        c.execute("CREATE TABLE guilds_new (id TEXT PRIMARY KEY, name TEXT)")
+        c.execute("INSERT INTO guilds_new (id, name) SELECT id, MIN(name) FROM guilds GROUP BY id")
+        c.execute("DROP TABLE guilds")
+        c.execute("ALTER TABLE guilds_new RENAME TO guilds")
+        conn.commit()
     conn.close()
 
 _ensure_schema()
