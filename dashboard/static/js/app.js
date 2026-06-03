@@ -117,7 +117,8 @@ function renderRoles() {
     const defaultChar = DEFAULT_EMOJI_MAP[item.emoji];
     let emojiCell;
     if (eid) {
-      const imgUrl = `https://cdn.discordapp.com/emojis/${eid}.png`;
+      const ext = item.emoji.startsWith('a:') ? 'gif' : 'png';
+      const imgUrl = `https://cdn.discordapp.com/emojis/${eid}.${ext}`;
       emojiCell = `<img class="emoji-img" src="${imgUrl}" alt="${escapeHtml(item.emoji)}" onerror="this.classList.add('fail');this.nextElementSibling.style.display=''"><span class="emoji-placeholder" style="display:none">⚠️</span>`;
     } else if (defaultChar) {
       emojiCell = `<span class="emoji-placeholder" style="font-size:24px">${defaultChar}</span>`;
