@@ -478,23 +478,25 @@ async def refresh_avatars_start(request: Request, sid: str = "default"):
     asyncio.create_task(worker())
     return {"ok": True, "total": len(user_ids)}
 
+# Allowable sort columns to prevent SQL injection
+_USERS_SORT_COLS = {"username": "u.username", "user_id": "u.user_id", "birthday": "u.birthday", "tag": "u.tag"}
+
 @app.get("/api/users")
-async def users(request: Request, q: str = "", guild_id: str = "", limit: int = 200, offset: int = 0):
+async def users(request: Request, q: str = "", guild_id: str = "", limit: int = 50, offset: int = 0,
+                sort_key: str = "username", sort_dir: str = "asc", birthday_filter: str = ""):
     user = await get_current_user(request)
     if OAUTH2_ENABLED and not user:
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
 
+    # Validate sort
+    order_col = _USERS_SORT_COLS.get(sort_key, "u.username")
+    order_dir = "DESC" if sort_dir.lower() == "desc" else "ASC"
+
     conn = db_conn()
     c = conn.cursor()
 
-    base_sql = """
-        SELECT u.user_id, u.username, u.birthday, u.tag, u.avatar,
-               GROUP_CONCAT(ug.guild_id) as guild_ids
-        FROM users u
-        LEFT JOIN user_guilds ug ON u.user_id = ug.user_id
-    """
     where_clauses = []
-    params = []
+    params: list = []
 
     if q:
         where_clauses.append("(u.username LIKE ? OR u.user_id LIKE ?)")
@@ -502,18 +504,42 @@ async def users(request: Request, q: str = "", guild_id: str = "", limit: int = 
     if guild_id:
         where_clauses.append("u.user_id IN (SELECT user_id FROM user_guilds WHERE guild_id = ?)")
         params.append(guild_id)
+    if birthday_filter == "has":
+        where_clauses.append("u.birthday IS NOT NULL AND u.birthday != '00-00'")
+    elif birthday_filter == "none":
+        where_clauses.append("(u.birthday IS NULL OR u.birthday = '00-00')")
 
+    where_sql = ""
     if where_clauses:
-        base_sql += " WHERE " + " AND ".join(where_clauses)
+        where_sql = " WHERE " + " AND ".join(where_clauses)
 
-    base_sql += " GROUP BY u.user_id ORDER BY u.username LIMIT ? OFFSET ?"
-    params.extend([limit, offset])
+    # Count total matching users
+    count_sql = f"""
+        SELECT COUNT(DISTINCT u.user_id)
+        FROM users u
+        LEFT JOIN user_guilds ug ON u.user_id = ug.user_id
+        {where_sql}
+    """
+    c.execute(count_sql, params)
+    total = c.fetchone()[0]
 
-    c.execute(base_sql, params)
+    # Fetch page
+    base_sql = f"""
+        SELECT u.user_id, u.username, u.birthday, u.tag, u.avatar,
+               GROUP_CONCAT(ug.guild_id) as guild_ids
+        FROM users u
+        LEFT JOIN user_guilds ug ON u.user_id = ug.user_id
+        {where_sql}
+        GROUP BY u.user_id
+        ORDER BY {order_col} {order_dir}
+        LIMIT ? OFFSET ?
+    """
+    c.execute(base_sql, params + [limit, offset])
     rows = c.fetchall()
     conn.close()
 
     return {
+        "total": total,
         "users": [
             {
                 "user_id": r[0],

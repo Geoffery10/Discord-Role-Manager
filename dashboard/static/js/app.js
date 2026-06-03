@@ -59,18 +59,57 @@ async function loadNextBirthday() {
 let allUsers = [];
 let userSort = { key: 'username', dir: 'asc' };
 let birthdayFilterState = 0;
+let userPageOffset = 0;
+let userPageLimit = 200;
+let userTotal = 0;
+let _usersLoading = false;
+let _usersReachedEnd = false;
 
-function sortUsers(list) {
-  const k = userSort.key;
-  const d = userSort.dir;
-  return list.slice().sort((a, b) => {
-    let av = a[k], bv = b[k];
-    if (k === 'user_id' || k === 'tag') { av = Number(av); bv = Number(bv); }
-    if (av < bv) return d === 'asc' ? -1 : 1;
-    if (av > bv) return d === 'asc' ? 1 : -1;
-    return 0;
-  });
+function userFilterParam() {
+  if (birthdayFilterState === 1) return 'has';
+  if (birthdayFilterState === 2) return 'none';
+  return '';
 }
+
+async function loadUsersPage(append = false) {
+  if (_usersLoading || (append && _usersReachedEnd)) return;
+  _usersLoading = true;
+
+  const q = document.getElementById('user-search').value;
+  const g = document.getElementById('guild-filter').value;
+  const bf = userFilterParam();
+  const offset = append ? userPageOffset : 0;
+
+  try {
+    const r = await fetch(
+      `/api/users?q=${encodeURIComponent(q)}&guild_id=${encodeURIComponent(g)}` +
+      `&limit=${userPageLimit}&offset=${offset}&sort_key=${userSort.key}&sort_dir=${userSort.dir}` +
+      (bf ? `&birthday_filter=${bf}` : '')
+    );
+    const d = await r.json();
+    userTotal = d.total ?? 0;
+    const fetched = d.users ?? [];
+
+    if (!append) {
+      allUsers = fetched;
+      userPageOffset = fetched.length;
+      _usersReachedEnd = fetched.length >= userTotal;
+    } else {
+      allUsers = allUsers.concat(fetched);
+      userPageOffset += fetched.length;
+      if (fetched.length === 0 || allUsers.length >= userTotal) _usersReachedEnd = true;
+    }
+
+    renderUsers();
+  } catch (e) {
+    console.error('Failed to load users:', e);
+  } finally {
+    _usersLoading = false;
+    const spinner = document.getElementById('users-spinner');
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
 
 function setUserSort(key) {
   const headers = document.querySelectorAll('#users-table th.sortable');
@@ -83,20 +122,12 @@ function setUserSort(key) {
   }
   const active = document.querySelector(`#users-table th[data-sort="${key}"]`);
   if (active) active.classList.add(userSort.dir);
-  renderUsers();
+  loadUsersPage(false);
 }
 
 function renderUsers() {
-  let filteredUsers = allUsers;
-  if (birthdayFilterState === 1) {
-    filteredUsers = allUsers.filter(u => u.birthday !== "00-00");
-  } else if (birthdayFilterState === 2) {
-    filteredUsers = allUsers.filter(u => u.birthday === "00-00");
-  }
-
-  let list = sortUsers(filteredUsers);
   const tbody = document.getElementById('users-tbody');
-  tbody.innerHTML = list.map(u => `<tr>
+  tbody.innerHTML = allUsers.map(u => `<tr>
     <td>${renderAvatar(u.user_id, u.avatar)}</td>
     <td>${escapeHtml(u.username)}</td>
     <td>${u.user_id}</td>
@@ -107,12 +138,7 @@ function renderUsers() {
 }
 
 async function loadUsers() {
-  const q = document.getElementById('user-search').value;
-  const g = document.getElementById('guild-filter').value;
-  const r = await fetch(`/api/users?q=${encodeURIComponent(q)}&guild_id=${encodeURIComponent(g)}`);
-  const d = await r.json();
-  allUsers = d.users;
-  renderUsers();
+  await loadUsersPage(false);
 }
 
 // Roles
@@ -562,8 +588,8 @@ document.getElementById('clean-up-users').addEventListener('click', async () => 
 });
 
 // Events
-document.getElementById('user-search').addEventListener('input', loadUsers);
-document.getElementById('guild-filter').addEventListener('input', loadUsers);
+document.getElementById('user-search').addEventListener('input', () => loadUsersPage(false));
+document.getElementById('guild-filter').addEventListener('input', () => loadUsersPage(false));
 
 // Tristate checkbox for birthday filter
 const birthdayFilter = document.getElementById('birthday-filter');
@@ -579,7 +605,7 @@ birthdayFilter.addEventListener('click', function() {
     this.checked = false;
     this.indeterminate = true;
   }
-  renderUsers();
+  loadUsersPage(false);
 });
 
 document.getElementById('refresh-logs').addEventListener('click', loadLogs);
@@ -662,6 +688,14 @@ function escapeHtml(t) {
   if (!t) return '';
   return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
+
+// Users infinite scroll
+document.getElementById('tab-users').addEventListener('scroll', function() {
+  const tab = this;
+  if (tab.scrollTop + tab.clientHeight >= tab.scrollHeight - 100) {
+    loadUsersPage(true);
+  }
+});
 
 // Init
 loadStats();

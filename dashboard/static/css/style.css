@@ -209,6 +209,7 @@ body {
 
 /* Tables */
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
+.spinner { text-align: center; color: var(--text-muted); font-size: 12px; padding: 10px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
 th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
 thead th { background: var(--bg-elev); font-size: 12px; text-transform: uppercase; color: var(--text-muted); position: sticky; top: 0; }
