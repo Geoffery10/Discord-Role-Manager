@@ -37,7 +37,7 @@ async def get_users():
     conn, c = await connect()
     c.execute("SELECT user_id, username, birthday, tag, avatar FROM users")
     users = c.fetchall()
-    c.close()
+    conn.close()
     user_objs = []
     for user in users:
         user_objs.append(User(user_id=user[0], username=user[1], birthday=user[2], tag=user[3], avatar=user[4]))
@@ -48,7 +48,7 @@ async def get_user(user_id):
     conn, c = await connect()
     c.execute("SELECT user_id, username, birthday, tag, avatar FROM users WHERE user_id = ?", (user_id,))
     user_data = c.fetchone()
-    c.close()
+    conn.close()
     if user_data:
         user = User(user_data[0], user_data[1], user_data[2], user_data[3], user_data[4])
         return user
@@ -61,7 +61,7 @@ async def add_user(user_id, username, birthday="00-00", tag="1", avatar=None):
     c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)",
               (username, birthday, tag, user_id, avatar))
     conn.commit()
-    c.close()
+    conn.close()
     return User(user_id, username, birthday, tag, avatar)
 
 # Update a user in the database
@@ -78,28 +78,28 @@ async def update_user(user_obj = None, user_id = None, username = None, birthday
         conn, c = await connect()
         c.execute("UPDATE users SET username = ?, birthday = ?, tag = ?, avatar = ? WHERE user_id = ?", (user_obj.get_username(), user_obj.get_birthday(), user_obj.get_tag(), user_obj.get_avatar(), user_obj.get_user_id()))
         conn.commit()
-        c.close()
+        conn.close()
 
 # Update user's avatar
 async def update_user_avatar(user_id, avatar):
     conn, c = await connect()
     c.execute("UPDATE users SET avatar = ? WHERE user_id = ?", (avatar, user_id))
     conn.commit()
-    c.close()
+    conn.close()
 
 # Delete a user from the database
 async def delete_user(user_id):
     conn, c = await connect()
     c.execute("DELETE FROM users WHERE user_id = ?", (user_id,))
     conn.commit()
-    c.close()
+    conn.close()
 
 # Get all users from a guild (to see if a user is in a guild check the user_id in the user_guilds table for the guild_id) user_guilds:(user_id, guild_id)
 async def get_guild_users(guild_id):
     conn, c = await connect()
     c.execute("SELECT user_id, username, birthday, tag, avatar FROM users WHERE user_id IN (SELECT user_id FROM user_guilds WHERE guild_id = ?)", (guild_id,))
     users_data = c.fetchall()
-    c.close()
+    conn.close()
     user_objs = []
     for user_data in users_data:
         user_objs.append(User(user_data[0], user_data[1], user_data[2], user_data[3], user_data[4]))
@@ -114,7 +114,7 @@ async def add_user_to_guild(user_id, guild_id):
         conn, c = await connect()
         c.execute("INSERT INTO user_guilds VALUES (?, ?)", (user_id, guild_id))
         conn.commit()
-        c.close()
+        conn.close()
         await log(type="debug", message=f"Added user: {user_id} to guild {guild_id}")
 
 # Remove user from a guild
@@ -122,14 +122,14 @@ async def remove_user_from_guild(user_id, guild_id):
     conn, c = await connect()
     c.execute("DELETE FROM user_guilds WHERE user_id = ? AND guild_id = ?", (user_id, guild_id))
     conn.commit()
-    c.close()
+    conn.close()
 
 # Check if a user is in a guild
 async def is_user_in_guild(user_id, guild_id):
     conn, c = await connect()
     c.execute("SELECT user_id, guild_id FROM user_guilds WHERE user_id = ? AND guild_id = ?", (user_id, guild_id))
     user_data = c.fetchone()
-    c.close()
+    conn.close()
     if user_data:
         return True
     else:
@@ -140,18 +140,18 @@ async def update_user_tag(user_id, tag):
     conn, c = await connect()
     c.execute("UPDATE users SET tag = ? WHERE user_id = ?", (tag, user_id))
     conn.commit()
-    c.close()
+    conn.close()
 
 # Update user's username
 async def update_user_username(user_id, username):
     conn, c = await connect()
     c.execute("UPDATE users SET username = ? WHERE user_id = ?", (username, user_id))
     conn.commit()
-    c.close()
+    conn.close()
 
 # Update user's birthday
 async def update_user_birthday(user_id, birthday):
     conn, c = await connect()
     c.execute("UPDATE users SET birthday = ? WHERE user_id = ?", (birthday, user_id))
     conn.commit()
-    c.close()
+    conn.close()
