@@ -114,9 +114,18 @@ function renderRoles() {
   const tbody = document.getElementById('roles-tbody');
   tbody.innerHTML = list.map((item, i) => {
     const eid = extractEmojiId(item.emoji);
-    const imgUrl = eid ? `https://cdn.discordapp.com/emojis/${eid}.png` : '';
+    const defaultChar = DEFAULT_EMOJI_MAP[item.emoji];
+    let emojiCell;
+    if (eid) {
+      const imgUrl = `https://cdn.discordapp.com/emojis/${eid}.png`;
+      emojiCell = `<img class="emoji-img" src="${imgUrl}" alt="${escapeHtml(item.emoji)}" onerror="this.classList.add('fail');this.nextElementSibling.style.display=''"><span class="emoji-placeholder" style="display:none">⚠️</span>`;
+    } else if (defaultChar) {
+      emojiCell = `<span class="emoji-placeholder" style="font-size:24px">${defaultChar}</span>`;
+    } else {
+      emojiCell = `<span class="emoji-placeholder">⚠️</span>`;
+    }
     return `<tr class="editable">
-    <td>${eid ? `<img class="emoji-img" src="${imgUrl}" alt="${escapeHtml(item.emoji)}" onerror="this.classList.add('fail');this.nextElementSibling.style.display=''">${eid ? '' : '<span class="emoji-placeholder">⚠️</span>'}<span class="emoji-placeholder" style="display:none">⚠️</span>` : '<span class="emoji-placeholder">⚠️</span>'}</td>
+    <td>${emojiCell}</td>
     <td><input data-idx="${i}" data-field="emoji" value="${escapeHtml(item.emoji)}"></td>
     <td><input data-idx="${i}" data-field="role" value="${item.role_id}"></td>
     <td><button class="btn danger" onclick="this.closest('tr').remove()">Remove</button></td>
