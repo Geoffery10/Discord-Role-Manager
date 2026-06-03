@@ -80,8 +80,13 @@
       <button id="clear-birthday-filter" class="btn">Clear</button>
     </div>
     <div class="table-wrap">
-      <table>
-        <thead><tr><th>Username</th><th>User ID</th><th>Birthday</th><th>Today?</th></tr></thead>
+      <table id="birthdays-table">
+        <thead><tr>
+          <th data-sort="username" class="sortable">Username <span class="sort-icon"></span></th>
+          <th data-sort="user_id" class="sortable">User ID <span class="sort-icon"></span></th>
+          <th data-sort="birthday" class="sortable">Birthday <span class="sort-icon"></span></th>
+          <th data-sort="days_till" class="sortable">Days Till <span class="sort-icon"></span></th>
+        </tr></thead>
         <tbody id="birthdays-tbody"></tbody>
       </table>
     </div>

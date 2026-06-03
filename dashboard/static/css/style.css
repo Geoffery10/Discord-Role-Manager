@@ -117,6 +117,13 @@ th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--bo
 thead th { background: var(--bg-elev); font-size: 12px; text-transform: uppercase; color: var(--text-muted); position: sticky; top: 0; }
 tbody tr:hover { background: rgba(255,255,255,.03); }
 
+/* Sortable headers */
+.sortable { cursor: pointer; user-select: none; }
+.sortable:hover { color: var(--text); }
+.sort-icon::after { content: "⇅"; opacity: .4; font-size: 11px; margin-left: 4px; }
+.sortable.asc .sort-icon::after { content: "▲"; opacity: 1; color: var(--accent); }
+.sortable.desc .sort-icon::after { content: "▼"; opacity: 1; color: var(--accent); }
+
 /* Toolbar */
 .toolbar { display: flex; gap: 10px; margin-bottom: 14px; align-items: center; flex-wrap: wrap; }
 input[type="text"], input[type="number"] {

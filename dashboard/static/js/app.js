@@ -70,15 +70,44 @@ async function loadBirthdays(monthFilter) {
     document.getElementById('next-birthday').textContent = 'No upcoming birthdays found.';
   }
 }
+let birthdaySort = { key: 'days_till', dir: 'asc' };
+
+function sortBirthdays(list) {
+  const k = birthdaySort.key;
+  const d = birthdaySort.dir;
+  return list.slice().sort((a, b) => {
+    let av = a[k], bv = b[k];
+    if (k === 'days_till' || k === 'user_id') { av = Number(av); bv = Number(bv); }
+    if (av < bv) return d === 'asc' ? -1 : 1;
+    if (av > bv) return d === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+function setSort(key) {
+  const headers = document.querySelectorAll('#birthdays-table th.sortable');
+  headers.forEach(th => th.classList.remove('asc','desc'));
+  if (birthdaySort.key === key) {
+    birthdaySort.dir = birthdaySort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    birthdaySort.key = key;
+    birthdaySort.dir = 'asc';
+  }
+  const active = document.querySelector(`#birthdays-table th[data-sort="${key}"]`);
+  if (active) active.classList.add(birthdaySort.dir);
+  renderBirthdays(document.getElementById('birthday-month').value || null);
+}
+
 function renderBirthdays(monthFilter) {
   let list = allBirthdays;
   if (monthFilter) list = list.filter(b => b.month == monthFilter);
+  list = sortBirthdays(list);
   const tbody = document.getElementById('birthdays-tbody');
   tbody.innerHTML = list.map(b => `<tr>
     <td>${escapeHtml(b.username)}</td>
     <td>${b.user_id}</td>
     <td>${b.birthday}</td>
-    <td>${b.is_today ? '<span style="color:var(--accent-2);font-weight:700">Yes</span>' : 'No'}</td>
+    <td>${b.days_till === 0 ? '<span style="color:var(--accent-2);font-weight:700">Today!</span>' : b.days_till}</td>
   </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No birthdays</td></tr>';
 }
 
@@ -133,6 +162,11 @@ document.getElementById('filter-birthdays').addEventListener('click', () => {
 document.getElementById('clear-birthday-filter').addEventListener('click', () => {
   document.getElementById('birthday-month').value = '';
   renderBirthdays(null);
+});
+
+// Sortable headers
+document.querySelectorAll('#birthdays-table th.sortable').forEach(th => {
+  th.addEventListener('click', () => setSort(th.dataset.sort));
 });
 
 function escapeHtml(t) {

@@ -169,13 +169,17 @@ async def birthdays():
     for uid, name, bday in rows:
         try:
             parsed = datetime.strptime(bday, "%m-%d").date()
+            next_bday = parsed.replace(year=today.year)
+            if next_bday < today:
+                next_bday = parsed.replace(year=today.year + 1)
+            delta = (next_bday - today).days
             bdays.append({
                 "user_id": uid,
                 "username": name,
                 "birthday": bday,
                 "month": parsed.month,
                 "day": parsed.day,
-                "is_today": parsed.month == today.month and parsed.day == today.day,
+                "days_till": delta,
             })
         except ValueError:
             continue
