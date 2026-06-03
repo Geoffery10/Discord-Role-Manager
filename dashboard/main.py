@@ -103,7 +103,6 @@ SERVER_IP = _get_server_ip()
 def db_conn():
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA busy_timeout = 5000")
-    conn.execute("PRAGMA journal_mode = WAL")
     return conn
 
 def read_json(path: Path):
