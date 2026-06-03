@@ -66,6 +66,11 @@ def _ensure_schema():
     except sqlite3.OperationalError:
         pass
     c = conn.cursor()
+    # If the users table doesn't exist yet (fresh checkout), nothing to migrate
+    c.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
+    if not c.fetchone():
+        conn.close()
+        return
     c.execute("PRAGMA table_info(users)")
     cols = {row[1] for row in c.fetchall()}
     if "avatar" not in cols:
