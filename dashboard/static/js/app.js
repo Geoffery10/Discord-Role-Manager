@@ -385,7 +385,9 @@ document.querySelectorAll('#roles-table th.sortable').forEach(th => {
 
 function renderAvatar(userId, avatar) {
   if (avatar) {
-    const url = `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`;
+    const isAnimated = avatar.startsWith('a_');
+    const ext = isAnimated ? 'gif' : 'png';
+    const url = `https://cdn.discordapp.com/avatars/${userId}/${avatar}.${ext}?size=64`;
     return `<img class="pfp" src="${url}" alt="" onerror="this.classList.add('fail');this.style.display='none'">`;
   }
   const defaultIndex = Number(BigInt(userId) >> 22n) % 6;
