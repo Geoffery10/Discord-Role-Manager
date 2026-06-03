@@ -10,6 +10,8 @@ from utils.logger import log
 # ------------------------------------------------------------------
 def _ensure_schema():
     conn = sqlite3.connect('discord.db')
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
     c = conn.cursor()
     c.execute("PRAGMA table_info(users)")
     cols = {row[1] for row in c.fetchall()}
@@ -23,6 +25,7 @@ _ensure_schema()
 # Connect to the database
 async def connect():
     conn = sqlite3.connect('discord.db')
+    conn.execute("PRAGMA busy_timeout = 5000")
     c = conn.cursor()
     return conn, c
 

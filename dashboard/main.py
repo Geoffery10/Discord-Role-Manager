@@ -39,6 +39,8 @@ LOG_PATH = PROJECT_ROOT / "rolm.log"
 # ------------------------------------------------------------------
 def _ensure_schema():
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
     c = conn.cursor()
     c.execute("PRAGMA table_info(users)")
     cols = {row[1] for row in c.fetchall()}
@@ -99,7 +101,10 @@ SERVER_IP = _get_server_ip()
 # Helpers
 # ------------------------------------------------------------------
 def db_conn():
-    return sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA busy_timeout = 5000")
+    conn.execute("PRAGMA journal_mode = WAL")
+    return conn
 
 def read_json(path: Path):
     if not path.exists():
