@@ -21,6 +21,11 @@
     <li data-tab="guilds">Guilds</li>
     <li data-tab="logs">Logs</li>
   </ul>
+  <div class="user-profile" id="user-profile">
+    <img id="user-avatar" src="/static/rolm_icon.png" alt="">
+    <span id="user-name">Loading...</span>
+    <a id="logout-btn" href="/auth/logout">Logout</a>
+  </div>
 </nav>
 
 <main class="content">
@@ -155,6 +160,23 @@
     } else {
       console.log('Chart.js loaded successfully');
     }
+  });
+</script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    fetch('/api/me')
+      .then(r => r.json())
+      .then(d => {
+        const user = d.user || { username: 'Guest', avatar: '' };
+        document.getElementById('user-name').textContent = user.username;
+        if (user.avatar) {
+          document.getElementById('user-avatar').src = user.avatar;
+        }
+      })
+      .catch(err => {
+        console.error('Failed to load user info:', err);
+        document.getElementById('user-name').textContent = 'Guest';
+      });
   });
 </script>
 </body>

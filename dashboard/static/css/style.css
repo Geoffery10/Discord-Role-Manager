@@ -56,6 +56,37 @@ body {
 .nav-links li:hover { background: rgba(255,255,255,.04); color: var(--text); }
 .nav-links li.active { background: var(--accent); color: #fff; }
 
+/* User profile in sidebar */
+.user-profile {
+  margin-top: auto;
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+}
+.user-profile img {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.user-profile span {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--text);
+}
+.user-profile a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 12px;
+}
+.user-profile a:hover { color: var(--danger); }
+
 /* Content */
 .content {
   flex: 1;
