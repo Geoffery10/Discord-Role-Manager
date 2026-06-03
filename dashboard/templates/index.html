@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rolm Dashboard</title>
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="sidebar">
+  <div class="brand">
+    <img src="https://cdn3.iconfinder.com/data/icons/popular-services-brands-vol-2/512/discord-128.png" alt="Rolm">
+    <span>Rolm</span>
+  </div>
+  <ul class="nav-links">
+    <li data-tab="overview" class="active">Overview</li>
+    <li data-tab="users">Users</li>
+    <li data-tab="roles">Roles</li>
+    <li data-tab="birthdays">Birthdays</li>
+    <li data-tab="guilds">Guilds</li>
+    <li data-tab="logs">Logs</li>
+  </ul>
+</nav>
+
+<main class="content">
+  <header class="topbar">
+    <h1 id="page-title">Overview</h1>
+    <div class="meta">
+      <span class="status-dot online"></span> Online
+    </div>
+  </header>
+
+  <!-- Overview -->
+  <section id="tab-overview" class="tab active">
+    <div class="cards">
+      <div class="card"><h3>Users</h3><p class="big" id="stat-users">-</p></div>
+      <div class="card"><h3>Guilds</h3><p class="big" id="stat-guilds">-</p></div>
+      <div class="card"><h3>Members</h3><p class="big" id="stat-members">-</p></div>
+      <div class="card"><h3>Reaction Roles</h3><p class="big" id="stat-roles">-</p></div>
+    </div>
+    <div class="panel">
+      <h2>Next Birthday</h2>
+      <div id="next-birthday" class="birthday-highlight">Loading...</div>
+    </div>
+  </section>
+
+  <!-- Users -->
+  <section id="tab-users" class="tab">
+    <div class="toolbar">
+      <input type="text" id="user-search" placeholder="Search users..." autocomplete="off">
+      <input type="text" id="guild-filter" placeholder="Guild ID filter" autocomplete="off">
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>User ID</th><th>Username</th><th>Birthday</th><th>Tag</th><th>Guilds</th></tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Roles -->
+  <section id="tab-roles" class="tab">
+    <div class="toolbar">
+      <button id="save-roles" class="btn primary">Save Roles</button>
+      <button id="add-role" class="btn">Add Row</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Emoji</th><th>Role ID</th><th></th></tr></thead>
+        <tbody id="roles-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Birthdays -->
+  <section id="tab-birthdays" class="tab">
+    <div class="toolbar">
+      <input type="number" id="birthday-month" placeholder="Month (1-12)" min="1" max="12">
+      <button id="filter-birthdays" class="btn">Filter</button>
+      <button id="clear-birthday-filter" class="btn">Clear</button>
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Username</th><th>User ID</th><th>Birthday</th><th>Today?</th></tr></thead>
+        <tbody id="birthdays-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Guilds -->
+  <section id="tab-guilds" class="tab">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Birthday Channel</th><th>Birthday Role</th></tr></thead>
+        <tbody id="guilds-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Logs -->
+  <section id="tab-logs" class="tab">
+    <div class="toolbar">
+      <button id="refresh-logs" class="btn">Refresh</button>
+      <span class="hint">Last 200 lines</span>
+    </div>
+    <pre id="log-viewer" class="log-box"></pre>
+  </section>
+</main>
+
+<script src="/static/js/app.js"></script>
+</body>
+</html>
