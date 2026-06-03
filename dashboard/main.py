@@ -5,6 +5,7 @@ import sqlite3
 import socket
 import subprocess
 import hashlib
+import asyncio
 from pathlib import Path
 from datetime import datetime, date
 from dotenv import load_dotenv
@@ -12,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi import FastAPI, Request, HTTPException
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
@@ -328,6 +329,155 @@ async def stats(request: Request):
 # ------------------------------------------------------------------
 # API: Users
 # ------------------------------------------------------------------
+DISCORD_API = "https://discord.com/api/v10"
+TOKEN = os.getenv("TOKEN", "")
+
+@app.post("/api/users/clean-up")
+async def clean_up_users(request: Request):
+    user = await get_current_user(request)
+    if OAUTH2_ENABLED and not user:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    conn = db_conn()
+    c = conn.cursor()
+
+    # Find users with no birthday (NULL or '00-00') and no guilds
+    c.execute("""
+        SELECT u.user_id FROM users u
+        LEFT JOIN user_guilds ug ON u.user_id = ug.user_id
+        WHERE (u.birthday IS NULL OR u.birthday = '00-00')
+          AND ug.user_id IS NULL
+    """)
+    stale_ids = [r[0] for r in c.fetchall()]
+
+    removed = 0
+    for uid in stale_ids:
+        c.execute("DELETE FROM users WHERE user_id = ?", (uid,))
+        removed += c.rowcount
+
+    conn.commit()
+    conn.close()
+
+    return {"ok": True, "removed": removed}
+
+async def _fetch_user_avatar(client: httpx.AsyncClient, user_id: str) -> str | None:
+    headers = {"Authorization": f"Bot {TOKEN}"}
+    url = f"{DISCORD_API}/users/{user_id}"
+    try:
+        resp = await client.get(url, headers=headers, timeout=10.0)
+        if resp.status_code == 200:
+            return resp.json().get("avatar")
+        return None
+    except Exception as e:
+        print(f"[Avatar refresh] Error for user {user_id}: {e}")
+        return None
+
+@app.post("/api/users/refresh-avatars")
+async def refresh_avatars(request: Request):
+    user = await get_current_user(request)
+    if OAUTH2_ENABLED and not user:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    conn = db_conn()
+    c = conn.cursor()
+    c.execute("SELECT user_id FROM users")
+    user_ids = [row[0] for row in c.fetchall()]
+    conn.close()
+
+    updated = 0
+    skipped = 0
+    async with httpx.AsyncClient() as client:
+        for i, uid in enumerate(user_ids):
+            avatar = await _fetch_user_avatar(client, uid)
+            if avatar:
+                conn = db_conn()
+                c = conn.cursor()
+                c.execute("UPDATE users SET avatar = ? WHERE user_id = ?", (avatar, uid))
+                conn.commit()
+                conn.close()
+                updated += 1
+                if updated % 50 == 0:
+                    print(f"[Avatar refresh] Updated {updated} so far")
+            else:
+                skipped += 1
+            if (i + 1) % 50 == 0:
+                await asyncio.sleep(1)
+
+    return {"ok": True, "updated": updated, "skipped": skipped}
+
+# ------------------------------------------------------------------
+# Avatar refresh progress via SSE
+# ------------------------------------------------------------------
+import queue
+from collections import defaultdict
+_avatar_progress: dict[str, dict] = defaultdict(lambda: {"total": 0, "done": 0, "current": ""})
+
+@app.get("/api/users/refresh-avatars/stream")
+async def refresh_avatars_stream(request: Request, sid: str = "default"):
+    user = await get_current_user(request)
+    if OAUTH2_ENABLED and not user:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    async def event_generator():
+        last = None
+        while True:
+            if await request.is_disconnected():
+                break
+            state = _avatar_progress[sid]
+            payload = json.dumps(state)
+            if payload != last:
+                yield f"data: {payload}\n\n"
+                last = payload
+            if state["done"] >= state["total"] and state["total"] > 0:
+                # final tick, then close
+                await asyncio.sleep(0.5)
+                break
+            await asyncio.sleep(0.3)
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+@app.post("/api/users/refresh-avatars/start")
+async def refresh_avatars_start(request: Request, sid: str = "default"):
+    user = await get_current_user(request)
+    if OAUTH2_ENABLED and not user:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    conn = db_conn()
+    c = conn.cursor()
+    c.execute("SELECT user_id FROM users")
+    user_ids = [row[0] for row in c.fetchall()]
+    conn.close()
+
+    _avatar_progress[sid] = {"total": len(user_ids), "done": 0, "current": ""}
+
+    async def worker():
+        updated = 0
+        skipped = 0
+        async with httpx.AsyncClient() as client:
+            for i, uid in enumerate(user_ids):
+                _avatar_progress[sid]["current"] = uid
+                avatar = await _fetch_user_avatar(client, uid)
+                if avatar:
+                    conn = db_conn()
+                    c = conn.cursor()
+                    c.execute("UPDATE users SET avatar = ? WHERE user_id = ?", (avatar, uid))
+                    conn.commit()
+                    conn.close()
+                    updated += 1
+                    if updated % 50 == 0:
+                        print(f"[Avatar refresh] Updated {updated} so far")
+                else:
+                    skipped += 1
+                _avatar_progress[sid]["done"] = i + 1
+                if (i + 1) % 50 == 0:
+                    await asyncio.sleep(1)
+
+        _avatar_progress[sid]["current"] = ""
+        print(f"[Avatar refresh] Done — updated {updated}, skipped {skipped}")
+
+    asyncio.create_task(worker())
+    return {"ok": True, "total": len(user_ids)}
+
 @app.get("/api/users")
 async def users(request: Request, q: str = "", guild_id: str = "", limit: int = 200, offset: int = 0):
     user = await get_current_user(request)

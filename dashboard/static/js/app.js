@@ -390,6 +390,177 @@ async function loadLogs() {
   document.getElementById('log-viewer').textContent = d.logs.join('\n') || 'No logs yet.';
 }
 
+/* ── PFP refresh: modal + SSE progress bar ─────────────────────── */
+let _pfpEvtSource = null;
+
+function showPfpConfirmModal(totalEstimateStr) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3>Refresh Profile Pictures?</h3>
+        <p>This may be slow depending on number of users.<br>Estimated users to update: <strong>${totalEstimateStr}</strong></p>
+        <div class="modal-buttons">
+          <button class="btn primary" id="pfp-modal-continue">Continue</button>
+          <button class="btn" id="pfp-modal-cancel">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#pfp-modal-continue').addEventListener('click', () => {
+      overlay.remove(); resolve(true);
+    });
+    overlay.querySelector('#pfp-modal-cancel').addEventListener('click', () => {
+      overlay.remove(); resolve(false);
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { overlay.remove(); resolve(false); }
+    });
+  });
+}
+
+function setPfpProgress(done, total) {
+  const wrap = document.getElementById('pfp-progress');
+  const bar = document.getElementById('pfp-progress-bar');
+  const txt = document.getElementById('pfp-progress-text');
+  if (!wrap || !bar || !txt) return;
+  const pct = total > 0 ? Math.round((done / total) * 100) : 0;
+  wrap.style.display = 'flex';
+  bar.style.setProperty('--pfp-pct', pct + '%');
+  bar.querySelector('::after') || (bar.innerHTML = '');
+  const fill = bar.querySelector('.pfp-progress-fill') || document.createElement('div');
+  fill.className = 'pfp-progress-fill';
+  fill.style.cssText = 'height:100%;width:' + pct + '%;background:linear-gradient(90deg,var(--accent),var(--accent-2));border-radius:4px;transition:width .3s ease;';
+  if (!bar.contains(fill)) bar.appendChild(fill);
+  txt.textContent = `${done} / ${total} updated`;
+}
+
+function hidePfpProgress() {
+  const wrap = document.getElementById('pfp-progress');
+  if (wrap) wrap.style.display = 'none';
+}
+
+async function startPfpRefresh() {
+  const btn = document.getElementById('refresh-pfps');
+  btn.disabled = true;
+
+  // 1) fetch total estimate
+  let total = 0;
+  try {
+    const r = await fetch('/api/users?limit=1');
+    const d = await r.json();
+    total = (d.users && d.users.length >= 0) ? null : 0; // placeholder, total comes from start response
+  } catch (_) {}
+
+  // better: call start endpoint which returns total
+  let startRes;
+  try {
+    startRes = await fetch('/api/users/refresh-avatars/start', { method: 'POST' });
+    const startData = await startRes.json();
+    if (!startData.ok) throw new Error('start failed');
+    total = startData.total;
+  } catch (e) {
+    console.error(e);
+    alert('Failed to start PFP refresh');
+    btn.disabled = false;
+    return;
+  }
+
+  const sid = 'default';
+  setPfpProgress(0, total);
+
+  // 2) open SSE stream
+  if (_pfpEvtSource) { _pfpEvtSource.close(); }
+  _pfpEvtSource = new EventSource(`/api/users/refresh-avatars/stream?sid=${sid}`);
+  _pfpEvtSource.onmessage = (ev) => {
+    const data = JSON.parse(ev.data);
+    setPfpProgress(data.done, data.total);
+    if (data.done >= data.total && data.total > 0) {
+      _pfpEvtSource.close();
+      _pfpEvtSource = null;
+      hidePfpProgress();
+      btn.disabled = false;
+      loadUsers();
+      alert(`PFP refresh complete! ${data.done} updated.`);
+    }
+  };
+  _pfpEvtSource.onerror = () => {
+    _pfpEvtSource.close();
+    _pfpEvtSource = null;
+    hidePfpProgress();
+    btn.disabled = false;
+  };
+}
+
+document.getElementById('refresh-pfps').addEventListener('click', async () => {
+  // quick estimate
+  let total = 0;
+  try {
+    const r = await fetch('/api/stats');
+    const d = await r.json();
+    total = d.users || 0;
+  } catch (_) {}
+
+  const ok = await showPfpConfirmModal(total || 'many');
+  if (ok) await startPfpRefresh();
+});
+
+/* ── Clean Up Users ─────────────────────────────────────────────── */
+function showConfirmModal(title, bodyHtml) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.innerHTML = `
+      <div class="modal">
+        <h3>${title}</h3>
+        <p>${bodyHtml}</p>
+        <div class="modal-buttons">
+          <button class="btn primary" id="modal-continue">Continue</button>
+          <button class="btn" id="modal-cancel">Cancel</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    overlay.querySelector('#modal-continue').addEventListener('click', () => {
+      overlay.remove(); resolve(true);
+    });
+    overlay.querySelector('#modal-cancel').addEventListener('click', () => {
+      overlay.remove(); resolve(false);
+    });
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) { overlay.remove(); resolve(false); }
+    });
+  });
+}
+
+document.getElementById('clean-up-users').addEventListener('click', async () => {
+  const ok = await showConfirmModal(
+    'Clean Up Users?',
+    'This will permanently delete users who have <strong>no birthday</strong> and <strong>no guilds</strong>.<br>This action cannot be undone.'
+  );
+  if (!ok) return;
+
+  const btn = document.getElementById('clean-up-users');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/users/clean-up', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      alert(`Clean-up complete. Removed ${d.removed} user${d.removed !== 1 ? 's' : ''}.`);
+      await loadUsers();
+    } else {
+      alert('Clean-up failed: ' + (d.error || 'unknown error'));
+    }
+  } catch (e) {
+    alert('Network error during clean-up');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // Events
 document.getElementById('user-search').addEventListener('input', loadUsers);
 document.getElementById('guild-filter').addEventListener('input', loadUsers);
