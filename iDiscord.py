@@ -5,6 +5,21 @@ import sqlite3
 from users import User
 from utils.logger import log
 
+# ------------------------------------------------------------------
+# Schema migration
+# ------------------------------------------------------------------
+def _ensure_schema():
+    conn = sqlite3.connect('discord.db')
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(users)")
+    cols = {row[1] for row in c.fetchall()}
+    if "avatar" not in cols:
+        c.execute("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT NULL")
+        conn.commit()
+    conn.close()
+
+_ensure_schema()
+
 # Connect to the database
 async def connect():
     conn = sqlite3.connect('discord.db')

@@ -35,6 +35,21 @@ BIRTHDAY_PATH = PROJECT_ROOT / "birthday.json"
 LOG_PATH = PROJECT_ROOT / "rolm.log"
 
 # ------------------------------------------------------------------
+# Schema migration (idempotent)
+# ------------------------------------------------------------------
+def _ensure_schema():
+    conn = sqlite3.connect(DB_PATH)
+    c = conn.cursor()
+    c.execute("PRAGMA table_info(users)")
+    cols = {row[1] for row in c.fetchall()}
+    if "avatar" not in cols:
+        c.execute("ALTER TABLE users ADD COLUMN avatar TEXT DEFAULT NULL")
+        conn.commit()
+    conn.close()
+
+_ensure_schema()
+
+# ------------------------------------------------------------------
 # Meta helpers
 # ------------------------------------------------------------------
 def _get_git_commit():
