@@ -20,6 +20,24 @@ guilds = [254779349352448001, 779429002657792020,
           786690956514426910, 580445867132321798, 
           855809352420950016, 1413215067398475941]
 
+# ------------------------------------------------------------------
+# Helpers
+# ------------------------------------------------------------------
+def load_roles(path="roles.json"):
+    with open(path, "r") as f:
+        data = json.load(f)
+    # Support old flat format {emoji: role_id} and new guild-scoped {guild_id: {emoji: role_id}}
+    if data and not any(isinstance(v, dict) for v in data.values()):
+        return {"254779349352448001": data}
+    return data
+
+def flatten_roles(roles_dict):
+    flat = {}
+    for guild_id, mapping in roles_dict.items():
+        for emoji, role_id in mapping.items():
+            flat[emoji] = int(role_id) if isinstance(role_id, str) else role_id
+    return flat
+
 
 class MyClient(discord.Client):
     def __init__(self, *args, **kwargs):
@@ -61,13 +79,10 @@ class MyClient(discord.Client):
     async def on_raw_reaction_add(self, payload):
         # Check if the message was one of the ones we want
         if payload.message_id in YOUR_MESSAGE_ID:
-            # Load roles from json file
-            with open("roles.json", "r") as f:
-                roles = json.load(f)
-            # Get reaction used and see if it's in the roles
+            roles_dict = load_roles("roles.json")
+            roles = flatten_roles(roles_dict)
             for reaction, role_id in roles.items():
                 if str(payload.emoji.id) in reaction:
-                    # Add the role to the user
                     role = payload.member.guild.get_role(role_id)
                     try:
                         await payload.member.add_roles(role)
@@ -82,13 +97,10 @@ class MyClient(discord.Client):
     async def on_raw_reaction_remove(self, payload):
         # Check if the message was one of the ones we want
         if payload.message_id in YOUR_MESSAGE_ID:
-            # Load roles from json file
-            with open("roles.json", "r") as f:
-                roles = json.load(f)
-            # Get reaction used and see if it's in the roles
+            roles_dict = load_roles("roles.json")
+            roles = flatten_roles(roles_dict)
             for reaction, role_id in roles.items():
                 if str(payload.emoji.id) in reaction:
-                    # Remove the role from the user
                     guild = client.get_guild(payload.guild_id)
                     member = guild.get_member(payload.user_id)
                     role = guild.get_role(role_id)
@@ -125,8 +137,7 @@ async def print_reaction_roles():
 
 # Load the contents of the .env file into the environment
 # Load the JSON file into a dictionary
-with open("roles.json") as f:
-    reaction_roles = json.load(f)
+reaction_roles = load_roles("roles.json")
 
 client = MyClient(intents=intents)
 tree = app_commands.CommandTree(client)

@@ -1,8 +1,9 @@
-# Takes in log type, severity, and message and logs it neatly to the console
-
 import datetime
 from colorama import Fore
 import re
+import os
+
+LOG_FILE = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "rolm.log")
 
 try:
     import aiohttp
@@ -17,16 +18,24 @@ async def log(type, message, severity=""):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d %I:%M:%S%p")
     except:
         timestamp = "00:00:00"
-    timestamp = f"{Fore.LIGHTBLACK_EX}{timestamp}{Fore.WHITE}"
-    type = await type_color(type.upper())
-    severity = await severity_color(severity.upper())
-    message = await color_special_messages(message.replace("\n", ""))
+    timestamp_str = f"{Fore.LIGHTBLACK_EX}{timestamp}{Fore.WHITE}"
+    type_str = await type_color(type.upper())
+    severity_str = await severity_color(severity.upper())
+    message_str = await color_special_messages(message.replace("\n", ""))
 
     if severity == "":
-        log = f"{timestamp} [{type}] {message}"
+        log_line = f"{timestamp} [{type.upper()}] {message}"
+        colored = f"{timestamp_str} [{type_str}] {message_str}"
     else:
-        log = f"{timestamp} [{type} - {severity}] {message}"
-    print(log)
+        log_line = f"{timestamp} [{type.upper()} - {severity.upper()}] {message}"
+        colored = f"{timestamp_str} [{type_str} - {severity_str}] {message_str}"
+    print(colored)
+    # Append to file
+    try:
+        with open(LOG_FILE, "a", encoding="utf-8") as f:
+            f.write(log_line + "\n")
+    except Exception:
+        pass
 
 
 async def type_color(type):

@@ -59,7 +59,7 @@ async def update_database(members, guild):
         user = await get_user(member.id)
         if user is None:
             # If user_id is not in the database, then add it
-            await add_user(member.id, member.name, "00-00", member.discriminator)
+            await add_user(member.id, member.name, "00-00", member.discriminator, member.avatar.key if member.avatar else None)
             await log(type="info", message="Added user: " + member.name)
         else:
             # Check if the user's tag is different
@@ -73,6 +73,12 @@ async def update_database(members, guild):
                 # Replace the username in the database with the new username
                 await update_user_username(member.id, member.name)
                 await log(type="info", message="Updated username for user: " + member.name)
+
+            # check if the user's avatar is different
+            avatar_key = member.avatar.key if member.avatar else None
+            if user.get_avatar() != avatar_key:
+                await update_user_avatar(member.id, avatar_key)
+                await log(type="info", message="Updated avatar for user: " + member.name)
 
         # Check if user_id is in the user_guilds table
         if not await is_user_in_guild(member.id, guild.id):

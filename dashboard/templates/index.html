@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rolm Dashboard</title>
+<link rel="icon" href="/static/rolm_icon.png" type="image/png">
+<link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+<nav class="sidebar">
+  <div class="brand">
+    <img src="/static/rolm_icon.png" alt="Rolm">
+    <span>Rolm</span>
+  </div>
+  <ul class="nav-links">
+    <li data-tab="overview" class="active">Overview</li>
+    <li data-tab="users">Users</li>
+    <li data-tab="roles">Roles</li>
+    <li data-tab="birthdays">Birthdays</li>
+    <li data-tab="guilds">Guilds</li>
+    <li data-tab="logs">Logs</li>
+  </ul>
+</nav>
+
+<main class="content">
+  <header class="topbar">
+    <h1 id="page-title">Overview</h1>
+    <div class="meta">
+      <span class="status-dot online"></span>
+      <span class="meta-label">Online</span>
+      <span class="meta-sep">|</span>
+      <span id="meta-commit" class="meta-info" title="Git commit">—</span>
+      <span class="meta-sep">|</span>
+      <span id="meta-ip" class="meta-info" title="Server IP">—</span>
+    </div>
+  </header>
+
+  <!-- Overview -->
+  <section id="tab-overview" class="tab active">
+    <div class="cards">
+      <div class="card"><h3>Birthdays</h3><p class="big" id="stat-birthdays">-</p></div>
+      <div class="card"><h3>Users (Unique)</h3><p class="big" id="stat-users">-</p></div>
+      <div class="card"><h3>Users (Total)</h3><p class="big" id="stat-members">-</p></div>
+      <div class="card"><h3>Guilds</h3><p class="big" id="stat-guilds">-</p></div>
+      <div class="card"><h3>Roles</h3><p class="big" id="stat-roles">-</p></div>
+    </div>
+    <div class="panel">
+      <h2>Upcoming Birthdays</h2>
+      <div id="upcoming-birthdays" class="birthday-highlight">Loading...</div>
+    </div>
+    <div class="card chart-card">
+      <h2>Birthdays by Month</h2>
+      <div class="chart-wrap">
+        <canvas id="birthdayChart"></canvas>
+      </div>
+    </div>
+  </section>
+
+  <!-- Users -->
+  <section id="tab-users" class="tab">
+    <div class="toolbar">
+      <input type="text" id="user-search" placeholder="Search users..." autocomplete="off">
+      <input type="text" id="guild-filter" placeholder="Guild ID filter" autocomplete="off">
+      <div class="filter-group">
+        <input type="checkbox" id="birthday-filter" class="tristate-checkbox">
+        <label for="birthday-filter">Has Birthday</label>
+      </div>
+    </div>
+    <div class="table-wrap">
+      <table id="users-table">
+        <thead><tr>
+          <th></th>
+          <th data-sort="user_id" class="sortable">User ID <span class="sort-icon"></span></th>
+          <th data-sort="username" class="sortable">Username <span class="sort-icon"></span></th>
+          <th data-sort="birthday" class="sortable">Birthday <span class="sort-icon"></span></th>
+          <th data-sort="tag" class="sortable">Tag <span class="sort-icon"></span></th>
+          <th>Guilds</th>
+        </tr></thead>
+        <tbody id="users-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Roles -->
+  <section id="tab-roles" class="tab">
+    <div class="toolbar">
+      <select id="role-guild-select"><option value="" disabled selected>Select Guild</option></select>
+      <button id="save-roles" class="btn primary">Save Roles</button>
+      <button id="refresh-role-names" class="btn">Refresh Role Names</button>
+      <button id="add-role" class="btn">Add Row</button>
+    </div>
+    <div class="table-wrap">
+      <table id="roles-table">
+        <thead><tr>
+          <th>Emoji</th>
+          <th data-sort="role_name" class="sortable">Role Name <span class="sort-icon"></span></th>
+          <th data-sort="emoji" class="sortable">Emoji Name <span class="sort-icon"></span></th>
+          <th data-sort="role_id" class="sortable">Role ID <span class="sort-icon"></span></th>
+          <th></th>
+        </tr></thead>
+        <tbody id="roles-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Birthdays -->
+  <section id="tab-birthdays" class="tab">
+    <div class="toolbar">
+      <input type="number" id="birthday-month" placeholder="Month (1-12)" min="1" max="12">
+      <button id="filter-birthdays" class="btn">Filter</button>
+      <button id="clear-birthday-filter" class="btn">Clear</button>
+    </div>
+    <div class="table-wrap">
+      <table id="birthdays-table">
+        <thead><tr>
+          <th></th>
+          <th data-sort="username" class="sortable">Username <span class="sort-icon"></span></th>
+          <th data-sort="user_id" class="sortable">User ID <span class="sort-icon"></span></th>
+          <th data-sort="birthday" class="sortable">Birthday <span class="sort-icon"></span></th>
+          <th data-sort="days_till" class="sortable">Days Till <span class="sort-icon"></span></th>
+        </tr></thead>
+        <tbody id="birthdays-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Guilds -->
+  <section id="tab-guilds" class="tab">
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>ID</th><th>Name</th><th>Birthday Channel</th><th>Birthday Role</th></tr></thead>
+        <tbody id="guilds-tbody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- Logs -->
+  <section id="tab-logs" class="tab">
+    <div class="toolbar">
+      <button id="refresh-logs" class="btn">Refresh</button>
+      <span class="hint">Last 200 lines</span>
+    </div>
+    <pre id="log-viewer" class="log-box"></pre>
+  </section>
+</main>
+
+<script src="/static/js/default_emojis.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="/static/js/app.js"></script>
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    if (typeof Chart === 'undefined') {
+      console.error('Chart.js failed to load');
+    } else {
+      console.log('Chart.js loaded successfully');
+    }
+  });
+</script>
+</body>
+</html>
