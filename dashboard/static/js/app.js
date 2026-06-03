@@ -57,7 +57,7 @@ async function loadNextBirthday() {
 
 // Users
 let allUsers = [];
-let userSort = { key: 'birthday', dir: 'asc' };
+let userSort = { key: 'username', dir: 'asc' };
 let birthdayFilterState = 0;
 
 function sortUsers(list) {
@@ -98,8 +98,8 @@ function renderUsers() {
   const tbody = document.getElementById('users-tbody');
   tbody.innerHTML = list.map(u => `<tr>
     <td>${renderAvatar(u.user_id, u.avatar)}</td>
-    <td>${u.user_id}</td>
     <td>${escapeHtml(u.username)}</td>
+    <td>${u.user_id}</td>
     <td>${u.birthday}</td>
     <td>${u.tag}</td>
     <td>${u.guilds.join(', ')}</td>
