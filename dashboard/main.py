@@ -77,12 +77,19 @@ async def stats():
 
     roles = read_json(ROLES_PATH)
     birthday_cfg = read_json(BIRTHDAY_PATH)
+    # Count total roles across all guilds (support flat & guild-scoped)
+    role_count = 0
+    if roles:
+        if any(isinstance(v, dict) for v in roles.values()):
+            role_count = sum(len(v) for v in roles.values())
+        else:
+            role_count = len(roles)
 
     return {
         "users": user_count,
         "guilds": guild_count,
         "members": member_count,
-        "reaction_roles": len(roles),
+        "reaction_roles": role_count,
         "birthday_guilds": len(birthday_cfg.get("guilds", [])),
     }
 
@@ -137,12 +144,29 @@ async def users(q: str = "", guild_id: str = "", limit: int = 200, offset: int =
 # API: Roles
 # ------------------------------------------------------------------
 @app.get("/api/roles")
-async def roles():
-    return read_json(ROLES_PATH)
+async def roles(guild_id: str = ""):
+    data = read_json(ROLES_PATH)
+    # Support old flat format
+    if data and not any(isinstance(v, dict) for v in data.values()):
+        data = {"254779349352448001": data}
+    # Stringify role IDs so JS doesn't lose precision on 18-digit snowflakes
+    for gid, mapping in data.items():
+        data[gid] = {k: str(v) for k, v in mapping.items()}
+    if guild_id:
+        return data.get(guild_id, {})
+    return data
 
 @app.post("/api/roles")
 async def update_roles(data: RoleMap):
-    write_json(ROLES_PATH, data.roles)
+    raw = read_json(ROLES_PATH)
+    # Support old flat format migration
+    if raw and not any(isinstance(v, dict) for v in raw.values()):
+        raw = {"254779349352448001": raw}
+    # data.roles shape from frontend: {guild_id: {emoji: role_id, ...}, ...}
+    # or flat if no guild selector was used (legacy safety)
+    for gid, mapping in data.roles.items():
+        raw[gid] = mapping
+    write_json(ROLES_PATH, raw)
     return {"ok": True}
 
 # ------------------------------------------------------------------
@@ -151,7 +175,13 @@ async def update_roles(data: RoleMap):
 @app.get("/api/guilds")
 async def guilds():
     cfg = read_json(BIRTHDAY_PATH)
-    return cfg.get("guilds", [])
+    guild_list = cfg.get("guilds", [])
+    # Ensure all snowflake IDs are strings so JS doesn't lose precision
+    for g in guild_list:
+        g["id"] = str(g.get("id", ""))
+        g["birthday_channel"] = str(g.get("birthday_channel", ""))
+        g["birthday_role"] = str(g.get("birthday_role", ""))
+    return guild_list
 
 # ------------------------------------------------------------------
 # API: Birthdays

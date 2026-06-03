@@ -74,6 +74,8 @@ async function loadUsers() {
 // Roles
 let allRoles = [];
 let roleSort = { key: 'emoji', dir: 'asc' };
+let selectedRoleGuild = '';
+let roleGuildsList = [];
 
 function sortRoles(list) {
   const k = roleSort.key;
@@ -111,11 +113,39 @@ function renderRoles() {
   </tr>`).join('');
 }
 
-async function loadRoles() {
-  const r = await fetch('/api/roles');
+async function loadRoleGuilds() {
+  const r = await fetch('/api/guilds');
+  const d = await r.json();
+  roleGuildsList = d;
+  const sel = document.getElementById('role-guild-select');
+  sel.innerHTML = '<option value="" disabled selected>Select Guild</option>';
+  d.forEach(g => {
+    const opt = document.createElement('option');
+    opt.value = g.id;
+    opt.textContent = `${g.name} (${g.id})`;
+    sel.appendChild(opt);
+  });
+}
+
+async function onRoleGuildChange() {
+  const sel = document.getElementById('role-guild-select');
+  selectedRoleGuild = sel.value;
+  if (!selectedRoleGuild) return;
+  const r = await fetch(`/api/roles?guild_id=${encodeURIComponent(selectedRoleGuild)}`);
   const d = await r.json();
   allRoles = Object.entries(d).map(([emoji, role_id]) => ({ emoji, role_id }));
   renderRoles();
+}
+
+async function loadRoles() {
+  await loadRoleGuilds();
+  // If a guild is already selected, reload its roles; otherwise empty table
+  if (selectedRoleGuild) {
+    await onRoleGuildChange();
+  } else {
+    allRoles = [];
+    renderRoles();
+  }
 }
 
 // Birthdays
@@ -205,6 +235,7 @@ async function loadLogs() {
 document.getElementById('user-search').addEventListener('input', loadUsers);
 document.getElementById('guild-filter').addEventListener('input', loadUsers);
 document.getElementById('refresh-logs').addEventListener('click', loadLogs);
+document.getElementById('role-guild-select').addEventListener('change', onRoleGuildChange);
 document.getElementById('save-roles').addEventListener('click', async () => {
   const rows = document.querySelectorAll('#roles-tbody tr.editable');
   const payload = {};
@@ -212,7 +243,12 @@ document.getElementById('save-roles').addEventListener('click', async () => {
     const inputs = row.querySelectorAll('input');
     if (inputs[0].value) payload[inputs[0].value] = inputs[1].value || 0;
   });
-  const r = await fetch('/api/roles', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({roles: payload}) });
+  const gid = selectedRoleGuild || '254779349352448001';
+  const r = await fetch('/api/roles', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({roles: {[gid]: payload}})
+  });
   const d = await r.json();
   alert(d.ok ? 'Saved!' : 'Error saving');
 });

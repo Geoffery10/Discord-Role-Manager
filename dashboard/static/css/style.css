@@ -136,6 +136,16 @@ input[type="text"], input[type="number"] {
   min-width: 220px;
 }
 input:focus { outline: none; border-color: var(--accent); }
+select {
+  background: var(--bg-elev);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  font-size: 14px;
+  min-width: 220px;
+}
+select:focus { outline: none; border-color: var(--accent); }
 
 .btn {
   background: var(--bg-elev);
