@@ -17,7 +17,7 @@ pronouns = {":trap:763101905244389376": 796516467222511626,
             ":confused_anime:557426389180088340": 796516551364050975,
             ":drink_anime:557426135001202708": 796516609862139934}
 guilds = [254779349352448001, 779429002657792020,
-          786690956514426910, 580445867132321798, 
+          786690956514426910, 580445867132321798,
           855809352420950016, 1413215067398475941]
 
 # ------------------------------------------------------------------
@@ -30,6 +30,23 @@ def load_roles(path="roles.json"):
     if data and not any(isinstance(v, dict) for v in data.values()):
         return {"254779349352448001": data}
     return data
+
+def flatten_roles(roles_dict):
+    flat = {}
+    for guild_id, mapping in roles_dict.items():
+        for emoji, role_id in mapping.items():
+            flat[emoji] = int(role_id) if isinstance(role_id, str) else role_id
+    return flat
+
+
+def load_roles(path="roles.json"):
+    with open(path, "r") as f:
+        data = json.load(f)
+    # Support old flat format {emoji: role_id} and new guild-scoped {guild_id: {emoji: role_id}}
+    if data and not any(isinstance(v, dict) for v in data.values()):
+        return {"254779349352448001": data}
+    return data
+
 
 def flatten_roles(roles_dict):
     flat = {}
@@ -64,10 +81,10 @@ class MyClient(discord.Client):
         if pronouns_message is None or other_roles is None:
             return
 
-        reaction_roles_trimmed = reaction_roles.copy()
+        reaction_roles_trimmed = flatten_roles(load_roles("roles.json")).copy()
         # remove pronouns reactions from reaction_roles_trimmed
         for reaction in pronouns.keys():
-            reaction_roles_trimmed.pop(reaction)
+            reaction_roles_trimmed.pop(reaction, None)
 
         await log(type="info", message=f"Rolm is now online!")
 
