@@ -103,14 +103,25 @@ function setRoleSort(key) {
   renderRoles();
 }
 
+function extractEmojiId(name) {
+  if (!name) return null;
+  const m = name.match(/:(\d+)$/);
+  return m ? m[1] : null;
+}
+
 function renderRoles() {
   let list = sortRoles(allRoles);
   const tbody = document.getElementById('roles-tbody');
-  tbody.innerHTML = list.map((item, i) => `<tr class="editable">
+  tbody.innerHTML = list.map((item, i) => {
+    const eid = extractEmojiId(item.emoji);
+    const imgUrl = eid ? `https://cdn.discordapp.com/emojis/${eid}.png` : '';
+    return `<tr class="editable">
+    <td>${eid ? `<img class="emoji-img" src="${imgUrl}" alt="${escapeHtml(item.emoji)}" onerror="this.classList.add('fail');this.nextElementSibling.style.display=''">${eid ? '' : '<span class="emoji-placeholder">⚠️</span>'}<span class="emoji-placeholder" style="display:none">⚠️</span>` : '<span class="emoji-placeholder">⚠️</span>'}</td>
     <td><input data-idx="${i}" data-field="emoji" value="${escapeHtml(item.emoji)}"></td>
     <td><input data-idx="${i}" data-field="role" value="${item.role_id}"></td>
     <td><button class="btn danger" onclick="this.closest('tr').remove()">Remove</button></td>
-  </tr>`).join('');
+  </tr>`;
+  }).join('');
 }
 
 async function loadRoleGuilds() {
@@ -253,12 +264,14 @@ document.getElementById('save-roles').addEventListener('click', async () => {
   });
   const d = await r.json();
   alert(d.ok ? 'Saved!' : 'Error saving');
+  if (d.ok) await onRoleGuildChange();
 });
 document.getElementById('add-role').addEventListener('click', () => {
   const tbody = document.getElementById('roles-tbody');
   const i = tbody.querySelectorAll('tr').length;
   const tr = document.createElement('tr'); tr.className='editable';
-  tr.innerHTML = `<td><input data-idx="${i}" data-field="emoji" value=""></td>
+  tr.innerHTML = `<td></td>
+    <td><input data-idx="${i}" data-field="emoji" value=""></td>
     <td><input data-idx="${i}" data-field="role" value=""></td>
     <td><button class="btn danger" onclick="this.closest('tr').remove()">Remove</button></td>`;
   tbody.appendChild(tr);
