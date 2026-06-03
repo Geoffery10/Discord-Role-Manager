@@ -50,6 +50,10 @@
     <div class="toolbar">
       <input type="text" id="user-search" placeholder="Search users..." autocomplete="off">
       <input type="text" id="guild-filter" placeholder="Guild ID filter" autocomplete="off">
+      <div class="filter-group">
+        <input type="checkbox" id="birthday-filter" class="tristate-checkbox">
+        <label for="birthday-filter">Has Birthday</label>
+      </div>
     </div>
     <div class="table-wrap">
       <table id="users-table">
@@ -70,12 +74,14 @@
     <div class="toolbar">
       <select id="role-guild-select"><option value="" disabled selected>Select Guild</option></select>
       <button id="save-roles" class="btn primary">Save Roles</button>
+      <button id="refresh-role-names" class="btn">Refresh Role Names</button>
       <button id="add-role" class="btn">Add Row</button>
     </div>
     <div class="table-wrap">
       <table id="roles-table">
         <thead><tr>
           <th>Emoji</th>
+          <th data-sort="role_name" class="sortable">Role Name <span class="sort-icon"></span></th>
           <th data-sort="emoji" class="sortable">Emoji Name <span class="sort-icon"></span></th>
           <th data-sort="role_id" class="sortable">Role ID <span class="sort-icon"></span></th>
           <th></th>

@@ -7,6 +7,19 @@ function switchTab(id) {
   sections.forEach(s => s.classList.toggle('active', s.id === 'tab-' + id));
   const names = { overview:'Overview', users:'Users', roles:'Roles', birthdays:'Birthdays', guilds:'Guilds', logs:'Logs' };
   title.textContent = names[id] || 'Rolm';
+  
+  // Refresh data when switching to a tab
+  if (id === 'users') {
+    loadUsers();
+  } else if (id === 'roles') {
+    loadRoles();
+  } else if (id === 'birthdays') {
+    loadBirthdays();
+  } else if (id === 'guilds') {
+    loadGuilds();
+  } else if (id === 'logs') {
+    loadLogs();
+  }
 }
 tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
 
@@ -22,7 +35,8 @@ async function loadStats() {
 
 // Users
 let allUsers = [];
-let userSort = { key: 'username', dir: 'asc' };
+let userSort = { key: 'birthday', dir: 'asc' };
+let birthdayFilterState = "both"; // "both", "has", "none"
 
 function sortUsers(list) {
   const k = userSort.key;
@@ -51,7 +65,15 @@ function setUserSort(key) {
 }
 
 function renderUsers() {
-  let list = sortUsers(allUsers);
+  // Apply birthday filter
+  let filteredUsers = allUsers;
+  if (birthdayFilterState === "has") {
+    filteredUsers = allUsers.filter(u => u.birthday !== "00-00");
+  } else if (birthdayFilterState === "none") {
+    filteredUsers = allUsers.filter(u => u.birthday === "00-00");
+  }
+  
+  let list = sortUsers(filteredUsers);
   const tbody = document.getElementById('users-tbody');
   tbody.innerHTML = list.map(u => `<tr>
     <td>${u.user_id}</td>
@@ -73,7 +95,7 @@ async function loadUsers() {
 
 // Roles
 let allRoles = [];
-let roleSort = { key: 'emoji', dir: 'asc' };
+let roleSort = { key: 'role_name', dir: 'asc' };
 let selectedRoleGuild = '';
 let roleGuildsList = [];
 
@@ -81,7 +103,8 @@ function sortRoles(list) {
   const k = roleSort.key;
   const d = roleSort.dir;
   return list.slice().sort((a, b) => {
-    let av = a[k], bv = b[k];
+    let av = a[k] || '';
+    let bv = b[k] || '';
     if (k === 'role_id') { av = Number(av); bv = Number(bv); }
     if (av < bv) return d === 'asc' ? -1 : 1;
     if (av > bv) return d === 'asc' ? 1 : -1;
@@ -125,8 +148,11 @@ function renderRoles() {
     } else {
       emojiCell = `<span class="emoji-placeholder">⚠️</span>`;
     }
+    const name = item.role_name ? escapeHtml(item.role_name) : '';
+    const nameClass = item.role_name ? 'role-name' : 'role-name missing';
     return `<tr class="editable">
     <td>${emojiCell}</td>
+    <td class="${nameClass}">${name || '—'}</td>
     <td><input data-idx="${i}" data-field="emoji" value="${escapeHtml(item.emoji)}"></td>
     <td><input data-idx="${i}" data-field="role" value="${item.role_id}"></td>
     <td><button class="btn danger" onclick="this.closest('tr').remove()">Remove</button></td>
@@ -154,7 +180,7 @@ async function onRoleGuildChange() {
   if (!selectedRoleGuild) return;
   const r = await fetch(`/api/roles?guild_id=${encodeURIComponent(selectedRoleGuild)}`);
   const d = await r.json();
-  allRoles = Object.entries(d).map(([emoji, role_id]) => ({ emoji, role_id }));
+  allRoles = d.roles || [];
   renderRoles();
 }
 
@@ -257,8 +283,41 @@ async function loadLogs() {
 // Events
 document.getElementById('user-search').addEventListener('input', loadUsers);
 document.getElementById('guild-filter').addEventListener('input', loadUsers);
+
+// Tristate checkbox for birthday filter
+const birthdayFilter = document.getElementById('birthday-filter');
+birthdayFilter.addEventListener('click', function() {
+  // Cycle through states: unchecked (both) -> checked (has) -> indeterminate (none) -> unchecked (both)
+  if (!this.checked && !this.indeterminate) {
+    // Unchecked to checked (has)
+    this.checked = true;
+    this.indeterminate = false;
+    birthdayFilterState = "has";
+  } else if (this.checked && !this.indeterminate) {
+    // Checked to indeterminate (none)
+    this.checked = true;
+    this.indeterminate = true;
+    birthdayFilterState = "none";
+  } else {
+    // Indeterminate to unchecked (both)
+    this.checked = false;
+    this.indeterminate = false;
+    birthdayFilterState = "both";
+  }
+  renderUsers();
+});
+
 document.getElementById('refresh-logs').addEventListener('click', loadLogs);
 document.getElementById('role-guild-select').addEventListener('change', onRoleGuildChange);
+document.getElementById('refresh-role-names').addEventListener('click', async () => {
+  const r = await fetch('/api/roles/refresh', { method: 'POST' });
+  const d = await r.json();
+  if (d.ok) {
+    await onRoleGuildChange();
+  } else {
+    alert('Failed to refresh role names');
+  }
+});
 document.getElementById('save-roles').addEventListener('click', async () => {
   const rows = document.querySelectorAll('#roles-tbody tr.editable');
   const payload = {};
@@ -281,6 +340,7 @@ document.getElementById('add-role').addEventListener('click', () => {
   const i = tbody.querySelectorAll('tr').length;
   const tr = document.createElement('tr'); tr.className='editable';
   tr.innerHTML = `<td></td>
+    <td></td>
     <td><input data-idx="${i}" data-field="emoji" value=""></td>
     <td><input data-idx="${i}" data-field="role" value=""></td>
     <td><button class="btn danger" onclick="this.closest('tr').remove()">Remove</button></td>`;
@@ -318,3 +378,7 @@ loadRoles();
 loadBirthdays();
 loadGuilds();
 loadLogs();
+
+// Initialize birthday filter state
+birthdayFilter.checked = false;
+birthdayFilter.indeterminate = false;

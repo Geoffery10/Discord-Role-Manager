@@ -135,6 +135,54 @@ input[type="text"], input[type="number"] {
   font-size: 14px;
   min-width: 220px;
 }
+
+/* Tristate checkbox */
+.filter-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tristate-checkbox {
+  appearance: none;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  position: relative;
+  cursor: pointer;
+  background: var(--bg-elev);
+}
+
+.tristate-checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.tristate-checkbox:checked::after {
+  content: "✓";
+  position: absolute;
+  color: white;
+  font-size: 12px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.tristate-checkbox:indeterminate {
+  background: var(--danger);
+  border-color: var(--danger);
+}
+
+.tristate-checkbox:indeterminate::after {
+  content: "✗";
+  position: absolute;
+  color: white;
+  font-size: 12px;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
 input:focus { outline: none; border-color: var(--accent); }
 select {
   background: var(--bg-elev);
@@ -204,3 +252,14 @@ select:focus { outline: none; border-color: var(--accent); }
   width: 100%;
 }
 .editable input:focus { border-color: var(--accent); outline: none; }
+
+/* Role name column */
+.role-name {
+  color: var(--text);
+  font-weight: 600;
+}
+.role-name.missing {
+  color: var(--text-muted);
+  font-style: italic;
+}
+

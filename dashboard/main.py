@@ -16,6 +16,8 @@ from starlette.requests import Request
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
+from dashboard.discord_api import refresh_role_cache, get_role_name, get_cached_guild_roles
+
 app = FastAPI(title="Rolm Dashboard")
 
 # Static + templates
@@ -153,8 +155,33 @@ async def roles(guild_id: str = ""):
     for gid, mapping in data.items():
         data[gid] = {k: str(v) for k, v in mapping.items()}
     if guild_id:
-        return data.get(guild_id, {})
+        mapping = data.get(guild_id, {})
+        enriched = []
+        for emoji, role_id in mapping.items():
+            name = get_role_name(guild_id, role_id)
+            enriched.append({"emoji": emoji, "role_id": role_id, "role_name": name})
+        return {"guild_id": guild_id, "roles": enriched}
     return data
+
+@app.post("/api/roles/refresh")
+async def refresh_roles():
+    data = read_json(ROLES_PATH)
+    if data and not any(isinstance(v, dict) for v in data.values()):
+        guild_ids = ["254779349352448001"]
+    else:
+        guild_ids = list(data.keys())
+    errors = {}
+    for gid in guild_ids:
+        try:
+            await refresh_role_cache([gid])
+        except Exception as e:
+            errors[gid] = str(e)
+    # Debug: return cache peek
+    sample = {}
+    for gid in guild_ids:
+        cache = get_cached_guild_roles(gid)
+        sample[gid] = {"role_count": len(cache), "first_keys": list(cache.keys())[:3]}
+    return {"ok": True, "guilds": guild_ids, "errors": errors, "cache_peek": sample}
 
 @app.post("/api/roles")
 async def update_roles(data: RoleMap):
