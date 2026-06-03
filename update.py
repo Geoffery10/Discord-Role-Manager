@@ -31,7 +31,6 @@ async def update(client, guilds):
 
 
 async def check_if_update_needed(client, guilds):
-    await log(type="info", message="Checking if update is needed")
     # Load last_update from a JSON file to check if it's a new day
     with open("last_update.json") as f:
         last_update = json.load(f)
