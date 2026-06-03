@@ -642,15 +642,20 @@ document.querySelectorAll('#roles-table th.sortable').forEach(th => {
 });
 
 function renderAvatar(userId, avatar) {
+  let url64, urlBig;
   if (avatar) {
     const isAnimated = avatar.startsWith('a_');
     const ext = isAnimated ? 'gif' : 'png';
-    const url = `https://cdn.discordapp.com/avatars/${userId}/${avatar}.${ext}?size=64`;
-    return `<img class="pfp" src="${url}" alt="" onerror="this.classList.add('fail');this.style.display='none'">`;
+    url64 = `https://cdn.discordapp.com/avatars/${userId}/${avatar}.${ext}?size=64`;
+    urlBig = `https://cdn.discordapp.com/avatars/${userId}/${avatar}.${ext}?size=512`;
+  } else {
+    url64 = `https://cdn.discordapp.com/embed/avatars/${Number(BigInt(userId) >> 22n) % 6}.png`;
+    urlBig = url64;
   }
-  const defaultIndex = Number(BigInt(userId) >> 22n) % 6;
-  const defaultUrl = `https://cdn.discordapp.com/embed/avatars/${defaultIndex}.png`;
-  return `<img class="pfp" src="${defaultUrl}" alt="">`;
+  return `<span class="pfp-wrap" data-big="${urlBig}" onclick="openAvatarModal(this.dataset.big, '${userId}')">
+    <img class="pfp" src="${url64}" alt="" loading="lazy"
+      onerror="this.parentElement.style.pointerEvents='none';this.classList.add('fail');this.style.display='none'">
+  </span>`;
 }
 
 function escapeHtml(t) {

@@ -184,6 +184,27 @@
         document.getElementById('user-name').textContent = 'Guest';
       });
   });
+
+  /* ── Avatar lightbox modal ─────────────────────────────────────── */
+  function openAvatarModal(url, userId) {
+    const overlay = document.createElement('div');
+    overlay.className = 'avatar-modal-overlay';
+    overlay.innerHTML = `
+      <div class="avatar-modal">
+        <button class="avatar-modal-close" title="Close">✕</button>
+        <img src="${url}" alt="${userId}" loading="lazy" onerror="this.alt='Image failed to load'">
+      </div>
+    `;
+    document.body.appendChild(overlay);
+
+    function close() { overlay.remove(); }
+    overlay.querySelector('.avatar-modal-close').addEventListener('click', close);
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+    document.addEventListener('keydown', function esc(ev) {
+      if (ev.key === 'Escape') { close(); document.removeEventListener('keydown', esc); }
+    });
+  }
+  window.openAvatarModal = openAvatarModal;
 </script>
 </body>
 </html>
