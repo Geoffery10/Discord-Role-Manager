@@ -14,50 +14,57 @@ async def connect():
 # Get all users from the database
 async def get_users():
     conn, c = await connect()
-    c.execute("SELECT user_id, username, birthday, tag FROM users")
+    c.execute("SELECT user_id, username, birthday, tag, avatar FROM users")
     users = c.fetchall()
     c.close()
     user_objs = []
     for user in users:
-        user_objs.append(User(user_id=user[0], username=user[1], birthday=user[2], tag=user[3]))
+        user_objs.append(User(user_id=user[0], username=user[1], birthday=user[2], tag=user[3], avatar=user[4]))
     return user_objs
 
 # Get a user from the database
 async def get_user(user_id):
     conn, c = await connect()
-    c.execute("SELECT user_id, username, birthday, tag FROM users WHERE user_id = ?", (user_id,))
+    c.execute("SELECT user_id, username, birthday, tag, avatar FROM users WHERE user_id = ?", (user_id,))
     user_data = c.fetchone()
     c.close()
     if user_data:
-        user = User(user_data[0], user_data[1], user_data[2], user_data[3])
+        user = User(user_data[0], user_data[1], user_data[2], user_data[3], user_data[4])
         return user
     else:
         return None
 
 # Add a user to the database
-async def add_user(user_id, username, birthday="00-00", tag="1"):
+async def add_user(user_id, username, birthday="00-00", tag="1", avatar=None):
     conn, c = await connect()
-    c.execute("INSERT INTO users VALUES (?, ?, ?, ?)",
-              (username, birthday, tag, user_id))
+    c.execute("INSERT INTO users VALUES (?, ?, ?, ?, ?)",
+              (username, birthday, tag, user_id, avatar))
     conn.commit()
     c.close()
-    return User(user_id, username, birthday, tag)
+    return User(user_id, username, birthday, tag, avatar)
 
 # Update a user in the database
-async def update_user(user_obj = None, user_id = None, username = None, birthday="00-00", tag="1"):
+async def update_user(user_obj = None, user_id = None, username = None, birthday="00-00", tag="1", avatar=None):
     if user_obj is None:
-        user_obj = User(user_id, username, birthday, tag)
+        user_obj = User(user_id, username, birthday, tag, avatar)
     # Get the user from the database using the user_id
     user = await get_user(user_obj.get_user_id())
     # If the user doesn't exist, add them to the database
     if user is None:
-        await add_user(user_obj.get_user_id(), user_obj.get_username(), user_obj.get_birthday(), user_obj.get_tag())
+        await add_user(user_obj.get_user_id(), user_obj.get_username(), user_obj.get_birthday(), user_obj.get_tag(), user_obj.get_avatar())
     # If the user does exist, update their information
     else:
         conn, c = await connect()
-        c.execute("UPDATE users SET username = ?, birthday = ?, tag = ? WHERE user_id = ?", (user_obj.get_username(), user_obj.get_birthday(), user_obj.get_tag(), user_obj.get_user_id()))
+        c.execute("UPDATE users SET username = ?, birthday = ?, tag = ?, avatar = ? WHERE user_id = ?", (user_obj.get_username(), user_obj.get_birthday(), user_obj.get_tag(), user_obj.get_avatar(), user_obj.get_user_id()))
         conn.commit()
         c.close()
+
+# Update user's avatar
+async def update_user_avatar(user_id, avatar):
+    conn, c = await connect()
+    c.execute("UPDATE users SET avatar = ? WHERE user_id = ?", (avatar, user_id))
+    conn.commit()
+    c.close()
 
 # Delete a user from the database
 async def delete_user(user_id):
@@ -69,12 +76,12 @@ async def delete_user(user_id):
 # Get all users from a guild (to see if a user is in a guild check the user_id in the user_guilds table for the guild_id) user_guilds:(user_id, guild_id)
 async def get_guild_users(guild_id):
     conn, c = await connect()
-    c.execute("SELECT user_id, username, birthday, tag FROM users WHERE user_id IN (SELECT user_id FROM user_guilds WHERE guild_id = ?)", (guild_id,))
+    c.execute("SELECT user_id, username, birthday, tag, avatar FROM users WHERE user_id IN (SELECT user_id FROM user_guilds WHERE guild_id = ?)", (guild_id,))
     users_data = c.fetchall()
     c.close()
     user_objs = []
     for user_data in users_data:
-        user_objs.append(User(user_data[0], user_data[1], user_data[2], user_data[3]))
+        user_objs.append(User(user_data[0], user_data[1], user_data[2], user_data[3], user_data[4]))
     return user_objs
 
 # Add user to a guild

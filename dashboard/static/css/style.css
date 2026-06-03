@@ -110,6 +110,30 @@ body {
   border-radius: var(--radius);
 }
 
+.birthday-highlight ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.birthday-highlight li {
+  padding: 8px 0;
+  border-bottom: 1px solid rgba(67,181,129,.1);
+}
+
+.birthday-highlight li:last-child {
+  border-bottom: none;
+}
+
+#birthday-chart-container {
+  margin-top: 20px;
+}
+
+#birthdayChart {
+  width: 100%;
+  height: 200px;
+}
+
 /* Tables */
 .table-wrap { overflow: auto; border: 1px solid var(--border); border-radius: var(--radius); }
 table { width: 100%; border-collapse: collapse; font-size: 14px; }
@@ -240,6 +264,14 @@ select:focus { outline: none; border-color: var(--accent); }
   line-height: 32px;
   text-align: center;
   width: 32px;
+}
+
+.pfp {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
 }
 
 /* Editable rows */

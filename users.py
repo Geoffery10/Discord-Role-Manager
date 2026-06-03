@@ -2,11 +2,12 @@
 from datetime import datetime
 
 class User:
-    def __init__(self, user_id, username, birthday="00-00", tag="1"):
+    def __init__(self, user_id, username, birthday="00-00", tag="1", avatar=None):
         self.set_user_id(user_id)
         self.set_username(username)
         self.set_birthday(birthday)
         self.set_tag(tag)
+        self.set_avatar(avatar)
 
     # Getters
     def get_user_id(self):
@@ -30,6 +31,9 @@ class User:
 
     def get_tag(self):
         return self._tag
+
+    def get_avatar(self):
+        return self._avatar
 
     # Setters
     def set_user_id(self, user_id):
@@ -56,3 +60,6 @@ class User:
 
     def set_tag(self, tag):
         self._tag = tag
+
+    def set_avatar(self, avatar):
+        self._avatar = avatar

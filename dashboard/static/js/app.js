@@ -7,8 +7,7 @@ function switchTab(id) {
   sections.forEach(s => s.classList.toggle('active', s.id === 'tab-' + id));
   const names = { overview:'Overview', users:'Users', roles:'Roles', birthdays:'Birthdays', guilds:'Guilds', logs:'Logs' };
   title.textContent = names[id] || 'Rolm';
-  
-  // Refresh data when switching to a tab
+
   if (id === 'users') {
     loadUsers();
   } else if (id === 'roles') {
@@ -19,6 +18,8 @@ function switchTab(id) {
     loadGuilds();
   } else if (id === 'logs') {
     loadLogs();
+  } else if (id === 'overview') {
+    loadStats();
   }
 }
 tabs.forEach(t => t.addEventListener('click', () => switchTab(t.dataset.tab)));
@@ -31,12 +32,20 @@ async function loadStats() {
   document.getElementById('stat-guilds').textContent = d.guilds;
   document.getElementById('stat-members').textContent = d.members;
   document.getElementById('stat-roles').textContent = d.reaction_roles;
+  loadNextBirthday();
+}
+
+// Load next birthday for overview panel
+async function loadNextBirthday() {
+  const r = await fetch('/api/birthdays');
+  const d = await r.json();
+  updateNextBirthdayPanel(d.birthdays);
 }
 
 // Users
 let allUsers = [];
 let userSort = { key: 'birthday', dir: 'asc' };
-let birthdayFilterState = "both"; // "both", "has", "none"
+let birthdayFilterState = 0;
 
 function sortUsers(list) {
   const k = userSort.key;
@@ -65,23 +74,23 @@ function setUserSort(key) {
 }
 
 function renderUsers() {
-  // Apply birthday filter
   let filteredUsers = allUsers;
-  if (birthdayFilterState === "has") {
+  if (birthdayFilterState === 1) {
     filteredUsers = allUsers.filter(u => u.birthday !== "00-00");
-  } else if (birthdayFilterState === "none") {
+  } else if (birthdayFilterState === 2) {
     filteredUsers = allUsers.filter(u => u.birthday === "00-00");
   }
-  
+
   let list = sortUsers(filteredUsers);
   const tbody = document.getElementById('users-tbody');
   tbody.innerHTML = list.map(u => `<tr>
+    <td>${renderAvatar(u.user_id, u.avatar)}</td>
     <td>${u.user_id}</td>
     <td>${escapeHtml(u.username)}</td>
     <td>${u.birthday}</td>
     <td>${u.tag}</td>
     <td>${u.guilds.join(', ')}</td>
-  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No users found</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No users found</td></tr>';
 }
 
 async function loadUsers() {
@@ -204,21 +213,34 @@ async function loadBirthdays(monthFilter) {
   const d = await r.json();
   allBirthdays = d.birthdays;
   renderBirthdays(monthFilter);
-  // Next birthday for overview
+  updateNextBirthdayPanel(d.birthdays);
+}
+
+function updateNextBirthdayPanel(birthdays) {
   const today = new Date();
-  const upcoming = d.birthdays.filter(b => {
+  const upcoming = birthdays.filter(b => {
     const bd = new Date(today.getFullYear(), b.month-1, b.day);
     if (bd < today) bd.setFullYear(today.getFullYear()+1);
     return bd >= today;
+  }).sort((a, b) => {
+    const dateA = new Date(today.getFullYear(), a.month-1, a.day);
+    const dateB = new Date(today.getFullYear(), b.month-1, b.day);
+    if (dateA < today) dateA.setFullYear(today.getFullYear()+1);
+    if (dateB < today) dateB.setFullYear(today.getFullYear()+1);
+    return dateA - dateB;
   });
+
+  const container = document.getElementById('upcoming-birthdays');
   if (upcoming.length) {
-    const b = upcoming[0];
-    document.getElementById('next-birthday').innerHTML =
-      `<strong>${escapeHtml(b.username)}</strong> on ${b.birthday} (ID: ${b.user_id})`;
+    const nextFive = upcoming.slice(0, 5);
+    container.innerHTML = '<ul>' + nextFive.map(b =>
+      `<li><strong>${escapeHtml(b.username)}</strong> on ${b.birthday} (ID: ${b.user_id})</li>`
+    ).join('') + '</ul>';
   } else {
-    document.getElementById('next-birthday').textContent = 'No upcoming birthdays found.';
+    container.textContent = 'No upcoming birthdays found.';
   }
 }
+
 let birthdaySort = { key: 'days_till', dir: 'asc' };
 
 function sortBirthdays(list) {
@@ -253,11 +275,12 @@ function renderBirthdays(monthFilter) {
   list = sortBirthdays(list);
   const tbody = document.getElementById('birthdays-tbody');
   tbody.innerHTML = list.map(b => `<tr>
+    <td>${renderAvatar(b.user_id, b.avatar)}</td>
     <td>${escapeHtml(b.username)}</td>
     <td>${b.user_id}</td>
     <td>${b.birthday}</td>
     <td>${b.days_till === 0 ? '<span style="color:var(--accent-2);font-weight:700">Today!</span>' : b.days_till}</td>
-  </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No birthdays</td></tr>';
+  </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No birthdays</td></tr>';
 }
 
 // Guilds
@@ -287,22 +310,16 @@ document.getElementById('guild-filter').addEventListener('input', loadUsers);
 // Tristate checkbox for birthday filter
 const birthdayFilter = document.getElementById('birthday-filter');
 birthdayFilter.addEventListener('click', function() {
-  // Cycle through states: unchecked (both) -> checked (has) -> indeterminate (none) -> unchecked (both)
-  if (!this.checked && !this.indeterminate) {
-    // Unchecked to checked (has)
-    this.checked = true;
-    this.indeterminate = false;
-    birthdayFilterState = "has";
-  } else if (this.checked && !this.indeterminate) {
-    // Checked to indeterminate (none)
-    this.checked = true;
-    this.indeterminate = true;
-    birthdayFilterState = "none";
-  } else {
-    // Indeterminate to unchecked (both)
+  birthdayFilterState = (birthdayFilterState + 1) % 3;
+  if (birthdayFilterState === 0) {
     this.checked = false;
     this.indeterminate = false;
-    birthdayFilterState = "both";
+  } else if (birthdayFilterState === 1) {
+    this.checked = true;
+    this.indeterminate = false;
+  } else {
+    this.checked = false;
+    this.indeterminate = true;
   }
   renderUsers();
 });
@@ -366,6 +383,16 @@ document.querySelectorAll('#roles-table th.sortable').forEach(th => {
   th.addEventListener('click', () => setRoleSort(th.dataset.sort));
 });
 
+function renderAvatar(userId, avatar) {
+  if (avatar) {
+    const url = `https://cdn.discordapp.com/avatars/${userId}/${avatar}.png?size=64`;
+    return `<img class="pfp" src="${url}" alt="" onerror="this.classList.add('fail');this.style.display='none'">`;
+  }
+  const defaultIndex = Number(BigInt(userId) >> 22n) % 6;
+  const defaultUrl = `https://cdn.discordapp.com/embed/avatars/${defaultIndex}.png`;
+  return `<img class="pfp" src="${defaultUrl}" alt="">`;
+}
+
 function escapeHtml(t) {
   if (!t) return '';
   return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
@@ -380,5 +407,6 @@ loadGuilds();
 loadLogs();
 
 // Initialize birthday filter state
+birthdayFilterState = 0;
 birthdayFilter.checked = false;
 birthdayFilter.indeterminate = false;

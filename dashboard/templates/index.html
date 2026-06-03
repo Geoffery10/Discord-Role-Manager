@@ -40,8 +40,12 @@
       <div class="card"><h3>Reaction Roles</h3><p class="big" id="stat-roles">-</p></div>
     </div>
     <div class="panel">
-      <h2>Next Birthday</h2>
-      <div id="next-birthday" class="birthday-highlight">Loading...</div>
+      <h2>Upcoming Birthdays</h2>
+      <div id="upcoming-birthdays" class="birthday-highlight">Loading...</div>
+      <div id="birthday-chart-container">
+        <h3>Birthdays by Month</h3>
+        <canvas id="birthdayChart" width="400" height="200"></canvas>
+      </div>
     </div>
   </section>
 
@@ -58,6 +62,7 @@
     <div class="table-wrap">
       <table id="users-table">
         <thead><tr>
+          <th></th>
           <th data-sort="user_id" class="sortable">User ID <span class="sort-icon"></span></th>
           <th data-sort="username" class="sortable">Username <span class="sort-icon"></span></th>
           <th data-sort="birthday" class="sortable">Birthday <span class="sort-icon"></span></th>
@@ -101,6 +106,7 @@
     <div class="table-wrap">
       <table id="birthdays-table">
         <thead><tr>
+          <th></th>
           <th data-sort="username" class="sortable">Username <span class="sort-icon"></span></th>
           <th data-sort="user_id" class="sortable">User ID <span class="sort-icon"></span></th>
           <th data-sort="birthday" class="sortable">Birthday <span class="sort-icon"></span></th>
@@ -133,5 +139,16 @@
 
 <script src="/static/js/default_emojis.js"></script>
 <script src="/static/js/app.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// Debug: Check if Chart.js is loaded
+document.addEventListener('DOMContentLoaded', function() {
+  if (typeof Chart === 'undefined') {
+    console.error('Chart.js failed to load');
+  } else {
+    console.log('Chart.js loaded successfully');
+  }
+});
+</script>
 </body>
 </html>

@@ -104,7 +104,7 @@ async def users(q: str = "", guild_id: str = "", limit: int = 200, offset: int =
     c = conn.cursor()
 
     base_sql = """
-        SELECT u.user_id, u.username, u.birthday, u.tag,
+        SELECT u.user_id, u.username, u.birthday, u.tag, u.avatar,
                GROUP_CONCAT(ug.guild_id) as guild_ids
         FROM users u
         LEFT JOIN user_guilds ug ON u.user_id = ug.user_id
@@ -136,7 +136,8 @@ async def users(q: str = "", guild_id: str = "", limit: int = 200, offset: int =
                 "username": r[1],
                 "birthday": r[2],
                 "tag": r[3],
-                "guilds": r[4].split(",") if r[4] else [],
+                "avatar": r[4],
+                "guilds": r[5].split(",") if r[5] else [],
             }
             for r in rows
         ]
@@ -217,13 +218,13 @@ async def guilds():
 async def birthdays():
     conn = db_conn()
     c = conn.cursor()
-    c.execute("SELECT user_id, username, birthday FROM users WHERE birthday != '00-00'")
+    c.execute("SELECT user_id, username, birthday, avatar FROM users WHERE birthday != '00-00'")
     rows = c.fetchall()
     conn.close()
 
     today = date.today()
     bdays = []
-    for uid, name, bday in rows:
+    for uid, name, bday, avatar in rows:
         try:
             parsed = datetime.strptime(bday, "%m-%d").date()
             next_bday = parsed.replace(year=today.year)
@@ -237,6 +238,7 @@ async def birthdays():
                 "month": parsed.month,
                 "day": parsed.day,
                 "days_till": delta,
+                "avatar": avatar,
             })
         except ValueError:
             continue
