@@ -10,6 +10,7 @@ function switchTab(id) {
 
   if (id === 'users') {
     loadUsers();
+    populateGuildFilter();
   } else if (id === 'roles') {
     loadRoles();
   } else if (id === 'birthdays') {
@@ -139,6 +140,28 @@ function renderUsers() {
 
 async function loadUsers() {
   await loadUsersPage(false);
+}
+
+async function populateGuildFilter() {
+  const sel = document.getElementById('guild-filter');
+  const currentVal = sel.value;
+  try {
+    const r = await fetch('/api/guilds');
+    const guilds = await r.json();
+    sel.innerHTML = '<option value="">All Guilds</option>';
+    guilds.forEach(g => {
+      const opt = document.createElement('option');
+      opt.value = g.id;
+      opt.textContent = g.name;
+      sel.appendChild(opt);
+    });
+    // Restore selection if still valid
+    if ([...sel.options].some(o => o.value === currentVal)) {
+      sel.value = currentVal;
+    }
+  } catch (e) {
+    console.error('Failed to populate guild filter:', e);
+  }
 }
 
 // Roles
@@ -646,7 +669,7 @@ document.getElementById('clean-up-users').addEventListener('click', async () => 
 
 // Events
 document.getElementById('user-search').addEventListener('input', () => loadUsersPage(false));
-document.getElementById('guild-filter').addEventListener('input', () => loadUsersPage(false));
+document.getElementById('guild-filter').addEventListener('change', () => loadUsersPage(false));
 
 // Tristate checkbox for birthday filter
 const birthdayFilter = document.getElementById('birthday-filter');
