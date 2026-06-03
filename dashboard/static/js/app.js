@@ -133,7 +133,7 @@ function renderUsers() {
     <td>${u.user_id}</td>
     <td>${u.birthday}</td>
     <td>${u.tag}</td>
-    <td>${u.guilds.join(', ')}</td>
+    <td>${(u.guild_names || u.guilds || []).join(', ')}</td>
   </tr>`).join('') || '<tr><td colspan="6" style="text-align:center;color:var(--text-muted)">No users found</td></tr>';
 }
 
@@ -437,6 +437,34 @@ async function loadGuilds() {
     <td>${g.birthday_role}</td>
   </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No guilds configured</td></tr>';
 }
+
+document.getElementById('refresh-guilds').addEventListener('click', async () => {
+  const btn = document.getElementById('refresh-guilds');
+  btn.disabled = true;
+  btn.textContent = 'Syncing...';
+  try {
+    const r = await fetch('/api/guilds/sync', { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      const tbody = document.getElementById('guilds-tbody');
+      tbody.innerHTML = d.guilds.map(g => `<tr>
+        <td>${g.id}</td>
+        <td>${escapeHtml(g.name)}</td>
+        <td>${g.birthday_channel}</td>
+        <td>${g.birthday_role}</td>
+      </tr>`).join('') || '<tr><td colspan="4" style="text-align:center;color:var(--text-muted)">No guilds configured</td></tr>';
+      btn.textContent = `Synced (${d.inserted} new)`;
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Refresh Guilds'; }, 2000);
+    } else {
+      btn.textContent = 'Sync failed';
+      setTimeout(() => { btn.disabled = false; btn.textContent = 'Refresh Guilds'; }, 2000);
+    }
+  } catch (e) {
+    console.error('Guild sync failed:', e);
+    btn.textContent = 'Sync failed';
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Refresh Guilds'; }, 2000);
+  }
+});
 
 // Logs
 async function loadLogs() {

@@ -536,6 +536,9 @@ async def users(request: Request, q: str = "", guild_id: str = "", limit: int = 
     """
     c.execute(base_sql, params + [limit, offset])
     rows = c.fetchall()
+    # Build guild id -> name lookup from the maintained guilds table
+    c.execute("SELECT id, name FROM guilds")
+    guild_map = {str(gid): gname for gid, gname in c.fetchall()}
     conn.close()
 
     return {
@@ -548,6 +551,7 @@ async def users(request: Request, q: str = "", guild_id: str = "", limit: int = 
                 "tag": r[3],
                 "avatar": r[4],
                 "guilds": r[5].split(",") if r[5] else [],
+                "guild_names": [guild_map.get(gid, gid) or gid for gid in (r[5].split(",") if r[5] else [])],
             }
             for r in rows
         ]
@@ -628,14 +632,70 @@ async def guilds(request: Request):
     if OAUTH2_ENABLED and not user:
         return JSONResponse(status_code=401, content={"error": "Unauthorized"})
 
+    conn = db_conn()
+    c = conn.cursor()
+    c.execute("SELECT id, name FROM guilds ORDER BY name")
+    rows = c.fetchall()
+    conn.close()
+
     cfg = read_json(BIRTHDAY_PATH)
-    guild_list = cfg.get("guilds", [])
-    # Ensure all snowflake IDs are strings so JS doesn't lose precision
-    for g in guild_list:
-        g["id"] = str(g.get("id", ""))
-        g["birthday_channel"] = str(g.get("birthday_channel", ""))
-        g["birthday_role"] = str(g.get("birthday_role", ""))
-    return guild_list
+    birthday_map = {str(g.get("id", "")): g for g in cfg.get("guilds", [])}
+
+    result = []
+    for gid, gname in rows:
+        bd = birthday_map.get(gid, {})
+        result.append({
+            "id": gid,
+            "name": gname,
+            "birthday_channel": str(bd.get("birthday_channel", "")),
+            "birthday_role": str(bd.get("birthday_role", "")),
+        })
+    return result
+
+@app.post("/api/guilds/sync")
+async def sync_guilds(request: Request):
+    user = await get_current_user(request)
+    if OAUTH2_ENABLED and not user:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    conn = db_conn()
+    c = conn.cursor()
+
+    # Every guild_id that appears in user_guilds should have a row in guilds
+    c.execute("SELECT DISTINCT guild_id FROM user_guilds")
+    ug_ids = [r[0] for r in c.fetchall()]
+
+    # Names from birthday.json as fallback
+    cfg = read_json(BIRTHDAY_PATH)
+    name_map = {str(g.get("id", "")): g.get("name", "") for g in cfg.get("guilds", [])}
+
+    inserted = 0
+    for gid in ug_ids:
+        c.execute("SELECT id FROM guilds WHERE id = ?", (gid,))
+        if not c.fetchone():
+            gname = name_map.get(gid, gid) or gid
+            c.execute("INSERT INTO guilds (id, name) VALUES (?, ?)", (gid, gname))
+            inserted += 1
+
+    conn.commit()
+
+    # Return refreshed list
+    c.execute("SELECT id, name FROM guilds ORDER BY name")
+    rows = c.fetchall()
+    conn.close()
+
+    birthday_map = {str(g.get("id", "")): g for g in cfg.get("guilds", [])}
+    result = []
+    for gid, gname in rows:
+        bd = birthday_map.get(gid, {})
+        result.append({
+            "id": gid,
+            "name": gname,
+            "birthday_channel": str(bd.get("birthday_channel", "")),
+            "birthday_role": str(bd.get("birthday_role", "")),
+        })
+
+    return {"ok": True, "inserted": inserted, "guilds": result}
 
 # ------------------------------------------------------------------
 # API: Birthdays

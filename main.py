@@ -62,6 +62,10 @@ class MyClient(discord.Client):
         
     async def on_ready(self):
         global guilds
+        # Sync the guilds table with every guild the bot is currently in
+        from iDiscord import sync_guilds_table
+        await sync_guilds_table(client)
+
         # Get the guild object
         guild = client.get_guild(254779349352448001)
         # Return early if the guild is None
@@ -87,6 +91,16 @@ class MyClient(discord.Client):
             reaction_roles_trimmed.pop(reaction, None)
 
         await log(type="info", message=f"Rolm is now online!")
+
+    async def on_guild_join(self, guild):
+        from iDiscord import add_guild_to_table
+        await add_guild_to_table(guild.id, guild.name)
+        await log(type="info", message=f"Joined guild: {guild.name} ({guild.id})")
+
+    async def on_guild_remove(self, guild):
+        from iDiscord import remove_guild_from_table
+        await remove_guild_from_table(guild.id)
+        await log(type="info", message=f"Left guild: {guild.name} ({guild.id})")
 
     async def on_message(self, message):
         # Run update tasks in the background if it's a new day

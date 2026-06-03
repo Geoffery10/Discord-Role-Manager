@@ -160,3 +160,32 @@ async def update_user_birthday(user_id, birthday):
     c.execute("UPDATE users SET birthday = ? WHERE user_id = ?", (birthday, user_id))
     conn.commit()
     conn.close()
+
+# ------------------------------------------------------------------
+# Guilds table sync
+# ------------------------------------------------------------------
+async def sync_guilds_table(client):
+    """Upsert every guild the bot is currently in into the guilds table."""
+    conn, c = await connect()
+    # Upsert each guild the bot sees right now
+    for guild in client.guilds:
+        c.execute("INSERT OR REPLACE INTO guilds (id, name) VALUES (?, ?)",
+                    (str(guild.id), guild.name))
+    conn.commit()
+    conn.close()
+    await log(type="info", message=f"Synced {len(client.guilds)} guild(s) into guilds table")
+
+async def add_guild_to_table(guild_id, guild_name):
+    """Insert/replace a single guild record (used by on_guild_join)."""
+    conn, c = await connect()
+    c.execute("INSERT OR REPLACE INTO guilds (id, name) VALUES (?, ?)",
+              (str(guild_id), guild_name))
+    conn.commit()
+    conn.close()
+
+async def remove_guild_from_table(guild_id):
+    """Delete a guild record (used by on_guild_leave)."""
+    conn, c = await connect()
+    c.execute("DELETE FROM guilds WHERE id = ?", (str(guild_id),))
+    conn.commit()
+    conn.close()
