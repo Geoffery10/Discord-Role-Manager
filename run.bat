@@ -1,3 +1,6 @@
 @echo off
+echo Starting Rolm Dashboard in background...
+start /min python -m dashboard.main
+echo Starting Rolm Bot...
 python main.py
 PAUSE
