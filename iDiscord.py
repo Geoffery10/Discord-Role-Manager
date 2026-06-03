@@ -11,7 +11,10 @@ from utils.logger import log
 def _ensure_schema():
     conn = sqlite3.connect('discord.db')
     conn.execute("PRAGMA busy_timeout = 5000")
-    conn.execute("PRAGMA journal_mode = WAL")
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+    except sqlite3.OperationalError:
+        pass
     c = conn.cursor()
     c.execute("PRAGMA table_info(users)")
     cols = {row[1] for row in c.fetchall()}

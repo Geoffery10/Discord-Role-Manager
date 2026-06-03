@@ -40,7 +40,14 @@ LOG_PATH = PROJECT_ROOT / "rolm.log"
 def _ensure_schema():
     conn = sqlite3.connect(DB_PATH)
     conn.execute("PRAGMA busy_timeout = 5000")
-    conn.execute("PRAGMA journal_mode = WAL")
+    # WAL mode is set once by whichever process gets here first.
+    # If another process already holds the DB, this may fail with
+    # "locking protocol".  Swallow benign failures — the DB already
+    # has WAL (or will get it when the lock holder sets it).
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+    except sqlite3.OperationalError:
+        pass
     c = conn.cursor()
     c.execute("PRAGMA table_info(users)")
     cols = {row[1] for row in c.fetchall()}
