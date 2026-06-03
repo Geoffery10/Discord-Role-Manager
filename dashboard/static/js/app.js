@@ -21,13 +21,39 @@ async function loadStats() {
 }
 
 // Users
-async function loadUsers() {
-  const q = document.getElementById('user-search').value;
-  const g = document.getElementById('guild-filter').value;
-  const r = await fetch(`/api/users?q=${encodeURIComponent(q)}&guild_id=${encodeURIComponent(g)}`);
-  const d = await r.json();
+let allUsers = [];
+let userSort = { key: 'username', dir: 'asc' };
+
+function sortUsers(list) {
+  const k = userSort.key;
+  const d = userSort.dir;
+  return list.slice().sort((a, b) => {
+    let av = a[k], bv = b[k];
+    if (k === 'user_id' || k === 'tag') { av = Number(av); bv = Number(bv); }
+    if (av < bv) return d === 'asc' ? -1 : 1;
+    if (av > bv) return d === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+function setUserSort(key) {
+  const headers = document.querySelectorAll('#users-table th.sortable');
+  headers.forEach(th => th.classList.remove('asc','desc'));
+  if (userSort.key === key) {
+    userSort.dir = userSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    userSort.key = key;
+    userSort.dir = 'asc';
+  }
+  const active = document.querySelector(`#users-table th[data-sort="${key}"]`);
+  if (active) active.classList.add(userSort.dir);
+  renderUsers();
+}
+
+function renderUsers() {
+  let list = sortUsers(allUsers);
   const tbody = document.getElementById('users-tbody');
-  tbody.innerHTML = d.users.map(u => `<tr>
+  tbody.innerHTML = list.map(u => `<tr>
     <td>${u.user_id}</td>
     <td>${escapeHtml(u.username)}</td>
     <td>${u.birthday}</td>
@@ -36,16 +62,60 @@ async function loadUsers() {
   </tr>`).join('') || '<tr><td colspan="5" style="text-align:center;color:var(--text-muted)">No users found</td></tr>';
 }
 
+async function loadUsers() {
+  const q = document.getElementById('user-search').value;
+  const g = document.getElementById('guild-filter').value;
+  const r = await fetch(`/api/users?q=${encodeURIComponent(q)}&guild_id=${encodeURIComponent(g)}`);
+  const d = await r.json();
+  allUsers = d.users;
+  renderUsers();
+}
+
 // Roles
+let allRoles = [];
+let roleSort = { key: 'emoji', dir: 'asc' };
+
+function sortRoles(list) {
+  const k = roleSort.key;
+  const d = roleSort.dir;
+  return list.slice().sort((a, b) => {
+    let av = a[k], bv = b[k];
+    if (k === 'role_id') { av = Number(av); bv = Number(bv); }
+    if (av < bv) return d === 'asc' ? -1 : 1;
+    if (av > bv) return d === 'asc' ? 1 : -1;
+    return 0;
+  });
+}
+
+function setRoleSort(key) {
+  const headers = document.querySelectorAll('#roles-table th.sortable');
+  headers.forEach(th => th.classList.remove('asc','desc'));
+  if (roleSort.key === key) {
+    roleSort.dir = roleSort.dir === 'asc' ? 'desc' : 'asc';
+  } else {
+    roleSort.key = key;
+    roleSort.dir = 'asc';
+  }
+  const active = document.querySelector(`#roles-table th[data-sort="${key}"]`);
+  if (active) active.classList.add(roleSort.dir);
+  renderRoles();
+}
+
+function renderRoles() {
+  let list = sortRoles(allRoles);
+  const tbody = document.getElementById('roles-tbody');
+  tbody.innerHTML = list.map((item, i) => `<tr class="editable">
+    <td><input data-idx="${i}" data-field="emoji" value="${escapeHtml(item.emoji)}"></td>
+    <td><input data-idx="${i}" data-field="role" value="${item.role_id}"></td>
+    <td><button class="btn danger" onclick="this.closest('tr').remove()">Remove</button></td>
+  </tr>`).join('');
+}
+
 async function loadRoles() {
   const r = await fetch('/api/roles');
   const d = await r.json();
-  const tbody = document.getElementById('roles-tbody');
-  tbody.innerHTML = Object.entries(d).map(([emoji, rid], i) => `<tr class="editable">
-    <td><input data-idx="${i}" data-field="emoji" value="${escapeHtml(emoji)}"></td>
-    <td><input data-idx="${i}" data-field="role" value="${rid}"></td>
-    <td><button class="btn danger" onclick="this.closest('tr').remove()">Remove</button></td>
-  </tr>`).join('');
+  allRoles = Object.entries(d).map(([emoji, role_id]) => ({ emoji, role_id }));
+  renderRoles();
 }
 
 // Birthdays
@@ -167,6 +237,12 @@ document.getElementById('clear-birthday-filter').addEventListener('click', () =>
 // Sortable headers
 document.querySelectorAll('#birthdays-table th.sortable').forEach(th => {
   th.addEventListener('click', () => setSort(th.dataset.sort));
+});
+document.querySelectorAll('#users-table th.sortable').forEach(th => {
+  th.addEventListener('click', () => setUserSort(th.dataset.sort));
+});
+document.querySelectorAll('#roles-table th.sortable').forEach(th => {
+  th.addEventListener('click', () => setRoleSort(th.dataset.sort));
 });
 
 function escapeHtml(t) {
