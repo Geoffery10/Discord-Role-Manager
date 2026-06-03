@@ -676,6 +676,68 @@ async def birthdays(request: Request):
     bdays.sort(key=lambda x: (x["month"], x["day"]))
     return {"birthdays": bdays}
 
+_BIRTHDAY_SORT_COLS = {"username", "user_id", "birthday", "days_till"}
+
+@app.get("/api/birthdays/list")
+async def birthdays_list(
+    request: Request,
+    limit: int = 200,
+    offset: int = 0,
+    sort_key: str = "days_till",
+    sort_dir: str = "asc",
+    month: str = "",
+):
+    user = await get_current_user(request)
+    if OAUTH2_ENABLED and not user:
+        return JSONResponse(status_code=401, content={"error": "Unauthorized"})
+
+    today = date.today()
+    conn = db_conn()
+    c = conn.cursor()
+    c.execute("SELECT user_id, username, birthday, avatar FROM users WHERE birthday != '00-00' AND birthday IS NOT NULL")
+    rows = c.fetchall()
+    conn.close()
+
+    bdays = []
+    for uid, name, bday, avatar in rows:
+        try:
+            parsed = datetime.strptime(bday, "%m-%d").date()
+            next_bday = parsed.replace(year=today.year)
+            if next_bday < today:
+                next_bday = parsed.replace(year=today.year + 1)
+            delta = (next_bday - today).days
+            bdays.append({
+                "user_id": uid,
+                "username": name,
+                "birthday": bday,
+                "month": parsed.month,
+                "day": parsed.day,
+                "days_till": delta,
+                "avatar": avatar,
+            })
+        except ValueError:
+            continue
+
+    if month:
+        try:
+            m = int(month)
+            bdays = [b for b in bdays if b["month"] == m]
+        except ValueError:
+            pass
+
+    if sort_key in _BIRTHDAY_SORT_COLS:
+        reverse = sort_dir == "desc"
+        if sort_key in ("days_till", "user_id"):
+            bdays.sort(key=lambda x: int(x.get(sort_key, 0)), reverse=reverse)
+        else:
+            bdays.sort(key=lambda x: (x.get(sort_key) or ""), reverse=reverse)
+    else:
+        bdays.sort(key=lambda x: (x["month"], x["day"]))
+
+    total = len(bdays)
+    paged = bdays[offset : offset + limit]
+    return {"total": total, "birthdays": paged}
+
 # ------------------------------------------------------------------
 # API: Logs
 # ------------------------------------------------------------------

@@ -13,7 +13,7 @@ function switchTab(id) {
   } else if (id === 'roles') {
     loadRoles();
   } else if (id === 'birthdays') {
-    loadBirthdays();
+    loadBirthdays(true);
   } else if (id === 'guilds') {
     loadGuilds();
   } else if (id === 'logs') {
@@ -248,12 +248,58 @@ async function loadRoles() {
 
 // Birthdays
 let allBirthdays = [];
-async function loadBirthdays(monthFilter) {
-  const r = await fetch('/api/birthdays');
-  const d = await r.json();
-  allBirthdays = d.birthdays;
-  renderBirthdays(monthFilter);
-  updateNextBirthdayPanel(d.birthdays);
+let birthdaySort = { key: 'days_till', dir: 'asc' };
+let birthdayPageOffset = 0;
+let birthdayPageLimit = 200;
+let birthdayTotal = 0;
+let _birthdaysLoading = false;
+let _birthdaysReachedEnd = false;
+
+async function loadBirthdays(fullReload = false) {
+  if (fullReload) {
+    const r = await fetch('/api/birthdays');
+    const d = await r.json();
+    updateNextBirthdayPanel(d.birthdays);
+  }
+  await loadBirthdaysPage(false);
+}
+
+async function loadBirthdaysPage(append = false) {
+  if (_birthdaysLoading || (append && _birthdaysReachedEnd)) return;
+  _birthdaysLoading = true;
+  const spinner = document.getElementById('birthdays-spinner');
+  if (spinner) spinner.style.display = 'block';
+
+  const month = document.getElementById('birthday-month').value || '';
+  const offset = append ? birthdayPageOffset : 0;
+
+  try {
+    const r = await fetch(
+      `/api/birthdays/list?limit=${birthdayPageLimit}&offset=${offset}` +
+      `&sort_key=${birthdaySort.key}&sort_dir=${birthdaySort.dir}` +
+      (month ? `&month=${encodeURIComponent(month)}` : '')
+    );
+    const d = await r.json();
+    birthdayTotal = d.total ?? 0;
+    const fetched = d.birthdays ?? [];
+
+    if (!append) {
+      allBirthdays = fetched;
+      birthdayPageOffset = fetched.length;
+      _birthdaysReachedEnd = fetched.length >= birthdayTotal;
+    } else {
+      allBirthdays = allBirthdays.concat(fetched);
+      birthdayPageOffset += fetched.length;
+      if (fetched.length === 0 || allBirthdays.length >= birthdayTotal) _birthdaysReachedEnd = true;
+    }
+
+    renderBirthdays();
+  } catch (e) {
+    console.error('Failed to load birthdays:', e);
+  } finally {
+    _birthdaysLoading = false;
+    if (spinner) spinner.style.display = 'none';
+  }
 }
 
 function updateNextBirthdayPanel(birthdays) {
@@ -354,20 +400,6 @@ function renderBirthdayChart(birthdays) {
   });
 }
 
-let birthdaySort = { key: 'days_till', dir: 'asc' };
-
-function sortBirthdays(list) {
-  const k = birthdaySort.key;
-  const d = birthdaySort.dir;
-  return list.slice().sort((a, b) => {
-    let av = a[k], bv = b[k];
-    if (k === 'days_till' || k === 'user_id') { av = Number(av); bv = Number(bv); }
-    if (av < bv) return d === 'asc' ? -1 : 1;
-    if (av > bv) return d === 'asc' ? 1 : -1;
-    return 0;
-  });
-}
-
 function setSort(key) {
   const headers = document.querySelectorAll('#birthdays-table th.sortable');
   headers.forEach(th => th.classList.remove('asc','desc'));
@@ -379,15 +411,12 @@ function setSort(key) {
   }
   const active = document.querySelector(`#birthdays-table th[data-sort="${key}"]`);
   if (active) active.classList.add(birthdaySort.dir);
-  renderBirthdays(document.getElementById('birthday-month').value || null);
+  loadBirthdaysPage(false);
 }
 
-function renderBirthdays(monthFilter) {
-  let list = allBirthdays;
-  if (monthFilter) list = list.filter(b => b.month == monthFilter);
-  list = sortBirthdays(list);
+function renderBirthdays() {
   const tbody = document.getElementById('birthdays-tbody');
-  tbody.innerHTML = list.map(b => `<tr>
+  tbody.innerHTML = allBirthdays.map(b => `<tr>
     <td>${renderAvatar(b.user_id, b.avatar)}</td>
     <td>${escapeHtml(b.username)}</td>
     <td>${b.user_id}</td>
@@ -648,12 +677,11 @@ document.getElementById('add-role').addEventListener('click', () => {
   tbody.appendChild(tr);
 });
 document.getElementById('filter-birthdays').addEventListener('click', () => {
-  const m = document.getElementById('birthday-month').value;
-  renderBirthdays(m);
+  loadBirthdaysPage(false);
 });
 document.getElementById('clear-birthday-filter').addEventListener('click', () => {
   document.getElementById('birthday-month').value = '';
-  renderBirthdays(null);
+  loadBirthdaysPage(false);
 });
 
 // Sortable headers
@@ -697,11 +725,19 @@ document.getElementById('tab-users').addEventListener('scroll', function() {
   }
 });
 
+// Birthdays infinite scroll
+document.getElementById('tab-birthdays').addEventListener('scroll', function() {
+  const tab = this;
+  if (tab.scrollTop + tab.clientHeight >= tab.scrollHeight - 100) {
+    loadBirthdaysPage(true);
+  }
+});
+
 // Init
 loadStats();
 loadUsers();
 loadRoles();
-loadBirthdays();
+loadBirthdays(true);
 loadGuilds();
 loadLogs();
 
