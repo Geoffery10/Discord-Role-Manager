@@ -139,8 +139,10 @@ async function onRoleGuildChange() {
 
 async function loadRoles() {
   await loadRoleGuilds();
-  // If a guild is already selected, reload its roles; otherwise empty table
-  if (selectedRoleGuild) {
+  const sel = document.getElementById('role-guild-select');
+  if (roleGuildsList.length) {
+    sel.value = roleGuildsList[0].id;
+    selectedRoleGuild = roleGuildsList[0].id;
     await onRoleGuildChange();
   } else {
     allRoles = [];
