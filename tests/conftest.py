@@ -152,7 +152,12 @@ def reload_idiscord_in(tmp_path):
 
 @pytest.fixture
 def birthday_json(isolated_cwd):
-    """Write a birthday.json into the isolated cwd. Returns the parsed dict."""
+    """Write a birthday.json into the isolated cwd. Returns the parsed dict.
+
+    Function-scoped: each test that requests this fixture gets a fresh
+    file. Tears down by removing it after the test runs, so tests that
+    don't request this fixture don't see leftover state.
+    """
     data = {
         "guilds": [
             {
@@ -171,7 +176,22 @@ def birthday_json(isolated_cwd):
     }
     path = Path(str(isolated_cwd)) / "birthday.json"
     path.write_text(json.dumps(data))
-    return data
+    yield data
+    if path.exists():
+        path.unlink()
+
+
+@pytest.fixture
+def no_birthday_json(isolated_cwd):
+    """Guarantee birthday.json does not exist. Function-scoped cleanup."""
+    path = Path(str(isolated_cwd)) / "birthday.json"
+    if path.exists():
+        path.unlink()
+    yield
+    # No teardown: leaving any leftover file from another fixture is fine,
+    # but if THIS test created one for some reason, clean up.
+    if path.exists():
+        path.unlink()
 
 
 @pytest.fixture
@@ -183,4 +203,6 @@ def last_update_json(isolated_cwd):
     """
     path = Path(str(isolated_cwd)) / "last_update.json"
     path.write_text(json.dumps({"last_update": "01/01/2000"}))
-    return path
+    yield path
+    if path.exists():
+        path.unlink()
