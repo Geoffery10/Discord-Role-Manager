@@ -1,7 +1,7 @@
 ![rolm_3_Banner](graphics/rolm_3.png)
 
 # Discord-Role-Manager (Rolm)
-[![Pipeline](https://img.shields.io/github/actions/workflow/status/Geoffery10/Discord-Role-Manager/test.yml)](https://github.com/Geoffery10/Discord-Role-Manager/actions/workflows/test.yml) ![Coveralls](https://img.shields.io/coverallsCoverage/github/Geoffery10/Discord-Role-Manager)
+[![Pipeline](https://img.shields.io/github/actions/workflow/status/Geoffery10/Discord-Role-Manager/test.yml)](https://github.com/Geoffery10/Discord-Role-Manager/actions/workflows/test.yml) [![Coveralls](https://img.shields.io/coverallsCoverage/github/Geoffery10/Discord-Role-Manager)](https://coveralls.io/builds/78252513)
 ![GitHub contributors](https://img.shields.io/github/contributors/Geoffery10/Discord-Role-Manager)
 ![GitHub top language](https://img.shields.io/github/languages/top/Geoffery10/Discord-Role-Manager)
 
