@@ -54,7 +54,7 @@ async def check_birthday(guild):
         return
 
     # Check if the user has a birthday in the database
-    if not users is None:
+    if users is not None:
         for user in users:
             await log(type="debug", message=f"Checking if it's {user.get_username()}'s birthday today...")
             await check_user(user, role_handler, guild, guild_info)
