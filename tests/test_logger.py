@@ -1,5 +1,10 @@
 import pytest
 import re
+from unittest.mock import MagicMock, patch
+
+import pytest
+from colorama import Fore
+
 from utils.logger import (
     log,
     type_color,
@@ -7,11 +12,11 @@ from utils.logger import (
     color_special_messages,
     recolor_special,
 )
-from colorama import Fore
 
 # Helper to strip ANSI codes for easier assertions where needed
 def strip_ansi(s: str) -> str:
     return re.sub(r"\x1b\[[0-9;]*m", "", s)
+
 
 @pytest.mark.asyncio
 async def test_type_color_known_and_unknown():
@@ -90,3 +95,55 @@ async def test_log_output(capsys):
     assert "Test message" in plain
     # Ensure the formatted log includes brackets
     assert "[INFO - LOW]" in plain or "[INFO]" in plain
+
+
+@pytest.mark.asyncio
+async def test_log_handles_datetime_now_exception(capsys):
+    # datetime.now() raising is caught and falls back to "00:00:00"
+    with patch("datetime.datetime") as mock_dt:
+        mock_dt.now.side_effect = RuntimeError("clock broken")
+        await log("info", "Test message", "low")
+    captured = capsys.readouterr()
+    plain = strip_ansi(captured.out)
+    assert "00:00:00" in plain
+    assert "Test message" in plain
+
+
+@pytest.mark.asyncio
+async def test_log_swallows_file_write_error(capsys, monkeypatch):
+    # File-write failures (e.g. read-only filesystem) must not crash.
+    # We patch builtins.open to raise PermissionError specifically when
+    # the logger tries to write to its LOG_FILE.
+    import builtins as _builtins
+    from utils.logger import LOG_FILE
+
+    real_open = _builtins.open
+
+    def fail_on_log_file(path, *args, **kwargs):
+        if str(path) == str(LOG_FILE):
+            raise PermissionError("read-only filesystem")
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(_builtins, "open", fail_on_log_file)
+    await log("info", "Test message", "low")
+    captured = capsys.readouterr()
+    plain = strip_ansi(captured.out)
+    # stdout path still ran
+    assert "Test message" in plain
+
+
+@pytest.mark.asyncio
+async def test_log_appends_to_log_file(tmp_path, monkeypatch):
+    # On the happy path, log() must append each line to LOG_FILE with
+    # the no-color formatted form (timestamp + bracketed type/severity).
+    log_file = tmp_path / "test.log"
+    monkeypatch.setattr("utils.logger.LOG_FILE", str(log_file))
+
+    await log("info", "First message", "low")
+    await log("error", "Second message", "high")
+
+    contents = log_file.read_text()
+    assert "First message" in contents
+    assert "Second message" in contents
+    assert "[INFO - LOW]" in contents
+    assert "[ERROR - HIGH]" in contents
