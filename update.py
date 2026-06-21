@@ -41,12 +41,8 @@ async def check_if_update_needed(client, guilds):
     # Check if it's a new day
     if today != last_update["last_update"]:
         # Update last_update in the JSON file
-        DEBUG = False
-        if DEBUG is False:
-            with open("last_update.json", "w") as f:
-                json.dump({"last_update": today}, f)
-        else:
-            await log(type="debug", message="DEBUG MODE: Not updating last_update.json", severity="high")
+        with open("last_update.json", "w") as f:
+            json.dump({"last_update": today}, f)
         # Run the update tasks in the background
         await update(client, guilds)
 
