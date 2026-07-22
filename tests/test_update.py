@@ -258,6 +258,45 @@ async def test_update_handles_empty_guild_list(isolated_cwd, fresh_db, last_upda
     assert gather_was_called
 
 
+@pytest.mark.asyncio
+async def test_update_skips_guilds_bot_is_not_in_without_aborting_loop(
+    isolated_cwd, fresh_db, last_update_json
+):
+    """Regression: a stale hardcoded guild id (one the bot has been removed
+    from) used to crash the daily task loop on .name, silently skipping
+    every guild that came after. The fix is to skip None returns with a
+    warning and continue iterating."""
+    guild_a = make_guild(100, name="Alpha", members=[])
+    guild_c = make_guild(300, name="Gamma", members=[])
+    client = MagicMock()
+    # Guild 200 is stale — the bot is no longer a member. The other two
+    # are live and must still get their check_birthday call.
+    client.get_guild.side_effect = lambda gid: {100: guild_a, 200: None, 300: guild_c}.get(gid)
+
+    check_birthday_mock = AsyncMock()
+    log_mock = AsyncMock()
+
+    async def fake_gather(*tasks):
+        return [None] * len(tasks)
+
+    with patch("update.check_birthday", new=check_birthday_mock):
+        with patch("update.asyncio.gather", new=fake_gather):
+            with patch("update.log", new=log_mock):
+                await update.update(client, [100, 200, 300])
+
+    # Only the two live guilds got a check_birthday call.
+    assert check_birthday_mock.await_count == 2
+    called_guilds = [call.args[0] for call in check_birthday_mock.await_args_list]
+    assert guild_a in called_guilds
+    assert guild_c in called_guilds
+
+    # A warning was logged for the stale id.
+    warning_calls = [c for c in log_mock.await_args_list
+                     if c.kwargs.get("type") == "warning"]
+    assert any("200" in (c.kwargs.get("message") or "") for c in warning_calls), \
+        "expected a warning log mentioning the stale guild id 200"
+
+
 # ------------------------------------------------------------------
 # check_if_update_needed()
 # ------------------------------------------------------------------

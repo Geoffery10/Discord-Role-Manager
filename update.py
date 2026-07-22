@@ -13,15 +13,30 @@ async def update(client, guilds):
     # Update Birthday Roles
     await log(type="info", message="Updating Birthday Roles")
     for guild_id in guilds:
-        await log(type="info", message=f"Updating birthday roles for {client.get_guild(guild_id).name}")
-        await check_birthday(client.get_guild(guild_id))
+        guild = client.get_guild(guild_id)
+        # The bot may have been removed from a guild since main.py's
+        # hardcoded list was last updated. client.get_guild() returns None
+        # in that case, and accessing .name on None would crash the whole
+        # daily task loop — silently skipping every guild that comes after.
+        # Skip with a warning so the rest of the guilds still get processed.
+        if guild is None:
+            await log(
+                type="warning",
+                message=f"Guild id {guild_id} is in the configured list but the bot is not a member; skipping",
+                severity="medium",
+            )
+            continue
+        await log(type="info", message=f"Updating birthday roles for {guild.name}")
+        await check_birthday(guild)
     # Update the database for each guild
     await log(type="info", message="Updating database")
     # Get members from the guilds
-    
+
     tasks = []
     for guild_id in guilds:
         guild = client.get_guild(guild_id)
+        if guild is None:
+            continue
         members = guild.members
         await log(type="info", message=f"Updating database for {guild.name}")
         task = asyncio.create_task(update_database(members, guild))
