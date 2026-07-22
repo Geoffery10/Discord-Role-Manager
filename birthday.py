@@ -24,9 +24,13 @@ async def check_birthday(guild):
     
     # Get all the users_id, username, and birthday from the database
     users = await get_users()
-    
-    # Keep only users that are in the guild
-    users = [user for user in users if guild.get_member(int(user.get_user_id())) is not None]
+
+    # Keep only users that are in the guild.
+    # Use the user_guilds table as the source of truth rather than
+    # guild.get_member(), which only checks the client cache and would
+    # silently drop every user in a guild whose member cache is cold
+    # (e.g. a newly-joined server before any messages have been seen).
+    users = [user for user in users if await is_user_in_guild(int(user.get_user_id()), guild.id)]
     
     # Load birthday json for guild
     try:
@@ -55,8 +59,8 @@ async def check_birthday(guild):
 
     # Check if the user has a birthday in the database
     if users is not None:
+        await log(type="debug", message=f"Checking birthdays for {len(users)} users in {guild.name}")
         for user in users:
-            await log(type="debug", message=f"Checking if it's {user.get_username()}'s birthday today...")
             await check_user(user, role_handler, guild, guild_info)
 
     await log(type="info", message="Checked all users")
@@ -116,7 +120,10 @@ async def check_user(user, role_handler, guild, guild_info):
         if role_id != -1:
             try:
                 message = await role_handler.remove_role(user_id, int(role_id))
-                await log(type="info", message=message.encode('utf-8'))
+                # log() expects a str; the file is opened with encoding="utf-8"
+                # so no .encode() is needed (and previously raised a
+                # TypeError on every non-birthday user that got here).
+                await log(type="info", message=message)
             except Exception as e:
                 await log(type="error",
                     message=f"Failed to remove role from user {user_id}. Error: {e}", severity="high")

@@ -322,7 +322,7 @@ async def test_check_birthday_loads_json_and_calls_check_user_per_member(
 ):
     """End-to-end of the orchestrator:
       1. Loads birthday.json
-      2. Filters users by guild membership (guild.get_member)
+      2. Filters users by guild membership (via the user_guilds table)
       3. Iterates each user and calls check_user
 
     This is the regression for the line-57 truthiness bug — if 'if not
@@ -333,17 +333,12 @@ async def test_check_birthday_loads_json_and_calls_check_user_per_member(
     # Seed two users; one will be in the guild, one won't.
     await iDiscord.add_user("111", "Alice", "05-15", "0001", None)
     await iDiscord.add_user("222", "Bob", "05-15", "0002", None)
+    # Alice is linked to guild 100; Bob is not.
+    await iDiscord.add_user_to_guild("111", 100)
 
     guild = MagicMock()
     guild.id = 100
     guild.name = "Test Guild"
-    # Alice (111) is in the guild; Bob (222) is not.
-    alice_member = MagicMock()
-
-    def _get_member(uid):
-        return alice_member if str(uid) == "111" else None
-
-    guild.get_member = MagicMock(side_effect=_get_member)
 
     # Patch RoleHandler so we don't try to construct against a real discord Guild.
     fake_role_handler = MagicMock()
@@ -409,18 +404,17 @@ async def test_check_birthday_warns_when_guild_not_in_json(
 async def test_check_birthday_filters_users_not_in_guild(
     isolated_cwd, fresh_db, birthday_json, fixed_today_ctx, mock_logger
 ):
-    """Two users in DB, only one in the guild — only the in-guild user
-    is passed to check_user. This is the same filter as the happy-path
-    test above but isolates it for clarity."""
+    """Two users in DB, neither linked to this guild via user_guilds —
+    neither should be passed to check_user. This is the same filter as
+    the happy-path test above but isolates it for clarity."""
     import iDiscord
     await iDiscord.add_user("111", "Alice", "05-15", "0001", None)
     await iDiscord.add_user("222", "Bob", "05-15", "0002", None)
+    # Deliberately do NOT link either user to guild 100.
 
     guild = MagicMock()
     guild.id = 100
     guild.name = "Test Guild"
-    # Neither user is in the guild.
-    guild.get_member = MagicMock(return_value=None)
 
     fake_role_handler = MagicMock()
     fake_role_handler.guild = guild
