@@ -4,6 +4,10 @@ RoleHandler wraps discord.Guild to provide add_role, remove_role, and
 get_roles. The interesting behavior is in the failure paths: missing
 role, missing member, role-not-in-member's-role-list. None of these
 were exercised before this file existed.
+
+Note: add_role and remove_role return a `Result` namedtuple
+(did_work: bool, message: str). Callers use `did_work` to decide
+whether the result is worth logging — see role_handler.py for why.
 """
 from unittest.mock import AsyncMock, MagicMock
 
@@ -64,10 +68,11 @@ async def test_add_role_success_calls_add_roles_and_returns_message():
     guild = make_guild(role=role, member=member)
     handler = RoleHandler(guild)
 
-    msg = await handler.add_role(12345, 999)
+    result = await handler.add_role(12345, 999)
 
-    assert "Birthday" in msg
-    assert "alice" in msg
+    assert result.did_work is True
+    assert "Birthday" in result.message
+    assert "alice" in result.message
     member.add_roles.assert_awaited_once_with(role)
     guild.fetch_member.assert_awaited_once_with(12345)
     guild.get_role.assert_called_once_with(999)
@@ -79,9 +84,10 @@ async def test_add_role_returns_not_found_when_role_is_none():
     guild = make_guild(role=None, member=member)
     handler = RoleHandler(guild)
 
-    msg = await handler.add_role(12345, 999)
+    result = await handler.add_role(12345, 999)
 
-    assert msg == "Role or member (12345) not found"
+    assert result.did_work is False
+    assert result.message == "Role or member (12345) not found"
     member.add_roles.assert_not_awaited()
 
 
@@ -91,9 +97,10 @@ async def test_add_role_returns_not_found_when_member_is_none():
     guild = make_guild(role=role, member=None)
     handler = RoleHandler(guild)
 
-    msg = await handler.add_role(12345, 999)
+    result = await handler.add_role(12345, 999)
 
-    assert msg == "Role or member (12345) not found"
+    assert result.did_work is False
+    assert result.message == "Role or member (12345) not found"
     role  # silence unused warnings
     guild.fetch_member.assert_awaited_once_with(12345)
 
@@ -103,9 +110,10 @@ async def test_add_role_returns_not_found_when_both_none():
     guild = make_guild(role=None, member=None)
     handler = RoleHandler(guild)
 
-    msg = await handler.add_role(12345, 999)
+    result = await handler.add_role(12345, 999)
 
-    assert msg == "Role or member (12345) not found"
+    assert result.did_work is False
+    assert result.message == "Role or member (12345) not found"
 
 
 # ------------------------------------------------------------------
@@ -119,26 +127,29 @@ async def test_remove_role_success_calls_remove_roles_when_member_has_role():
     guild = make_guild(role=role, member=member)
     handler = RoleHandler(guild)
 
-    msg = await handler.remove_role(12345, 999)
+    result = await handler.remove_role(12345, 999)
 
-    assert "Birthday" in msg
-    assert "alice" in msg
+    assert result.did_work is True
+    assert "Birthday" in result.message
+    assert "alice" in result.message
     member.remove_roles.assert_awaited_once_with(role)
 
 
 @pytest.mark.asyncio
-async def test_remove_role_returns_already_absent_message_when_role_not_in_member_roles():
-    """Member exists but doesn't have the role — remove is a no-op + info message."""
+async def test_remove_role_returns_no_op_when_role_not_in_member_roles():
+    """Member exists but doesn't have the role. remove_roles must NOT
+    be called, and did_work must be False so callers don't log spam."""
     role = make_role(name="Birthday", role_id=999)
     other_role = make_role(name="Other", role_id=888)
     member = make_member(name="alice", user_id=12345, roles=[other_role])
     guild = make_guild(role=role, member=member)
     handler = RoleHandler(guild)
 
-    msg = await handler.remove_role(12345, 999)
+    result = await handler.remove_role(12345, 999)
 
-    assert "alice" in msg
-    assert "Birthday" in msg
+    assert result.did_work is False
+    assert "alice" in result.message
+    assert "Birthday" in result.message
     # Critical: remove_roles must NOT be called when the member doesn't have it.
     member.remove_roles.assert_not_awaited()
 
@@ -149,9 +160,10 @@ async def test_remove_role_returns_not_found_when_role_is_none():
     guild = make_guild(role=None, member=member)
     handler = RoleHandler(guild)
 
-    msg = await handler.remove_role(12345, 999)
+    result = await handler.remove_role(12345, 999)
 
-    assert msg == "Role or member (12345) not found"
+    assert result.did_work is False
+    assert result.message == "Role or member (12345) not found"
 
 
 @pytest.mark.asyncio
@@ -160,9 +172,10 @@ async def test_remove_role_returns_not_found_when_member_is_none():
     guild = make_guild(role=role, member=None)
     handler = RoleHandler(guild)
 
-    msg = await handler.remove_role(12345, 999)
+    result = await handler.remove_role(12345, 999)
 
-    assert msg == "Role or member (12345) not found"
+    assert result.did_work is False
+    assert result.message == "Role or member (12345) not found"
 
 
 # ------------------------------------------------------------------

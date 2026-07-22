@@ -22,15 +22,11 @@ birthday_messages = [
 async def check_birthday(guild):
     role_handler = RoleHandler(guild)
     
-    # Get all the users_id, username, and birthday from the database
-    users = await get_users()
-
-    # Keep only users that are in the guild.
-    # Use the user_guilds table as the source of truth rather than
-    # guild.get_member(), which only checks the client cache and would
-    # silently drop every user in a guild whose member cache is cold
-    # (e.g. a newly-joined server before any messages have been seen).
-    users = [user for user in users if await is_user_in_guild(int(user.get_user_id()), guild.id)]
+    # Get the users that are in this guild in a single SQL query.
+    # This replaces the previous per-user is_user_in_guild() loop, which
+    # issued one query per user and was visibly slow on the bot server
+    # (one guild took ~19s for ~200 users).
+    users = await get_guild_users(guild.id)
     
     # Load birthday json for guild
     try:
@@ -88,8 +84,9 @@ async def check_user(user, role_handler, guild, guild_info):
         role_id = int(guild_info.get("birthday_role"))
         if role_id != -1:
             try:
-                message = await role_handler.add_role(user_id, role_id)
-                await log(type="info", message=message)
+                result = await role_handler.add_role(user_id, role_id)
+                if result.did_work:
+                    await log(type="info", message=result.message)
             except Exception as e:
                 await log(type="info", message=f"Failed to add role to user {user_id}")
                 await log(type="info", message=f"Error: {e}")
@@ -119,11 +116,13 @@ async def check_user(user, role_handler, guild, guild_info):
         role_id = int(guild_info.get("birthday_role"))
         if role_id != -1:
             try:
-                message = await role_handler.remove_role(user_id, int(role_id))
-                # log() expects a str; the file is opened with encoding="utf-8"
-                # so no .encode() is needed (and previously raised a
-                # TypeError on every non-birthday user that got here).
-                await log(type="info", message=message)
+                result = await role_handler.remove_role(user_id, int(role_id))
+                # Only log when the API was actually called (i.e. the user
+                # had the role). The "user does not have the role" no-op is
+                # the expected steady state and was previously spamming the
+                # log with one INFO line per user per day.
+                if result.did_work:
+                    await log(type="info", message=result.message)
             except Exception as e:
                 await log(type="error",
                     message=f"Failed to remove role from user {user_id}. Error: {e}", severity="high")
