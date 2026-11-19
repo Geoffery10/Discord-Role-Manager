@@ -30,12 +30,12 @@ def make_user(user_id, username, bday, roles=None):
     def get_birthday_date():
         if bday == "00-00":
             return None
-        for fmt in ("%m-%d", "%m-%d-%Y"):
-            try:
-                return datetime.datetime.strptime(bday, fmt).date()
-            except ValueError:
-                continue
-        return None
+        # Route through the real parser. Building a yearless date with
+        # strptime("%m-%d") is a hard error on CPython 3.15 (cpython#70647).
+        try:
+            return birthday.parse_month_day(bday)
+        except ValueError:
+            return None
 
     user.get_birthday_date.side_effect = get_birthday_date
     # Some tests inspect get_birthday_datetime — provide the same logic.

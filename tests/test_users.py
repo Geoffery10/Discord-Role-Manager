@@ -169,7 +169,8 @@ def test_parse_month_day_rejects_out_of_range_month():
 
 
 def test_no_module_parses_yearless_dates_with_strptime():
-    """Guard: no source file may call strptime with a %d-without-%Y format.
+    """Guard: no source or test file may call strptime with a %d format
+    that lacks %Y.
 
     That pattern is a hard error on 3.15, so a reintroduction must fail here
     rather than in CI or in the bot.
@@ -177,10 +178,11 @@ def test_no_module_parses_yearless_dates_with_strptime():
     from pathlib import Path
     root = Path(__file__).resolve().parent.parent
     offenders = []
-    for name in ("users.py", "birthday.py", "update.py", "iDiscord.py"):
-        for line in (root / name).read_text().splitlines():
-            if "strptime" in line and "%m-%d" in line and "%Y" not in line:
-                offenders.append(f"{name}: {line.strip()}")
+    paths = list(root.glob("*.py")) + list((root / "tests").glob("*.py"))
+    for path in paths:
+        for line in path.read_text().splitlines():
+            if "strptime" in line and "%d" in line and "%Y" not in line:
+                offenders.append(f"{path.name}: {line.strip()}")
     assert not offenders, offenders
 
 
