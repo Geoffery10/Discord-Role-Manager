@@ -55,7 +55,28 @@ _FIXED_TODAY = (2023, 5, 15)
 class _FixedDate(datetime.date):
     @classmethod
     def today(cls):
-        return cls(*_FIXED_TODAY)
+        # Return a plain datetime.date so nothing downstream compares against
+        # this subclass.
+        return datetime.date(*_FIXED_TODAY)
+
+
+class _FixedDateTimeShim:
+    """Stand-in for the `datetime` module as seen by birthday.py.
+
+    Only what birthday.py touches: `date.today()` is pinned to _FIXED_TODAY and
+    `datetime` stays the real class, so `.strptime()` keeps working.
+
+    Do NOT go back to patch("datetime.date", _FixedDate). That mutates the
+    stdlib module, and _strptime snapshots `datetime.date` the first time it is
+    imported. The first strptime() call made while the patch is active therefore
+    caches the fake class, and every later strptime() in the same process fails
+    with "time data '05-15' does not match format '%m-%d'". It passes on 3.11
+    and fails hard on CPython 3.15, which is what CI runs. Patching birthday's
+    own module reference keeps the stdlib untouched.
+    """
+
+    date = _FixedDate
+    datetime = datetime.datetime
 
 
 @pytest.fixture(autouse=True)
@@ -90,7 +111,7 @@ def fixed_today_ctx():
         def __enter__(self):
             global _FIXED_TODAY
             _FIXED_TODAY = (self.year, self.month, self.day)
-            self._p = patch("datetime.date", _FixedDate)
+            self._p = patch("birthday.datetime", _FixedDateTimeShim)
             self._p.start()
             return self
 
