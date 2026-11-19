@@ -4,12 +4,15 @@ import asyncio
 import datetime
 from utils.logger import log
 import json
-from birthday import check_birthday
+from birthday import check_birthday, clear_card_cache
 
 
 async def update(client, guilds):
     # Run Daily Tasks
     await log(type="info", message="Running update tasks")
+    # Nothing about a card is kept: drop yesterday's renders so today's are
+    # generated fresh from whatever PFP the member is using now.
+    clear_card_cache()
     # Update Birthday Roles
     await log(type="info", message="Updating Birthday Roles")
     for guild_id in guilds:
