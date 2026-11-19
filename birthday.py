@@ -1,9 +1,11 @@
 import datetime
+import io
 import random
 from collections import namedtuple
 
 import discord
 
+import birthday_card
 from iDiscord import *
 from role_handler import RoleHandler
 from users import User, parse_month_day
@@ -15,6 +17,82 @@ import json
 #   known_gone  - True only when Discord answered with a definitive 404, the
 #                 single case where pruning the user_guilds row is safe
 Membership = namedtuple("Membership", ["member", "known_gone"])
+
+
+# Rendered cards for this run only. Keyed by (resolved avatar URL, username), so
+# a user showing the same PFP in several servers is rendered once and reused,
+# while a server-specific PFP (its URL carries the guild id) never leaks onto
+# another server. Cleared at the start of each daily run: nothing persists, so
+# every day's cards are generated fresh.
+_CARD_CACHE: dict[tuple[str, str], bytes] = {}
+
+_AVATAR_UA = "rolm-birthday-card/1.0"
+
+
+def clear_card_cache():
+    _CARD_CACHE.clear()
+
+
+def safe_filename(name: str) -> str:
+    """Filesystem-safe attachment name; the card itself is only ever in memory."""
+    keep = [c if (c.isalnum() or c in "-_.") else "_" for c in name]
+    return "".join(keep).strip("._")[:60] or "user"
+
+
+def display_avatar_url(member) -> tuple[str, bool]:
+    """The PFP this member shows *in this guild*, and whether it animates.
+
+    member.display_avatar is per-guild by construction: it is the server avatar
+    when one is set, otherwise the account avatar, otherwise Discord's default.
+    Because the URL carries the guild id for server avatars, a server-specific
+    PFP can never be substituted into another server's post.
+    """
+    asset = member.display_avatar
+    animated = bool(asset.is_animated())
+    # Discord only serves animated avatars at <=256px.
+    url = asset.replace(size=256 if animated else 512,
+                        format="gif" if animated else "png").url
+    return url, animated
+
+
+async def _fetch_avatar(url: str) -> bytes:
+    import aiohttp
+
+    # Bounded: a slow CDN object must not stall the daily task for every
+    # guild that comes after it.
+    timeout = aiohttp.ClientTimeout(total=30)
+    async with aiohttp.ClientSession(timeout=timeout) as session:
+        async with session.get(url, headers={"User-Agent": _AVATAR_UA}) as resp:
+            resp.raise_for_status()
+            return await resp.read()
+
+
+async def birthday_card_bytes(member, username: str) -> bytes | None:
+    """Render (or reuse) the birthday card for this member in this guild.
+
+    Returns None if the card could not be built; the caller still posts the
+    message, because a missing picture must never swallow a birthday.
+    """
+    import asyncio
+
+    try:
+        url, _ = display_avatar_url(member)
+        key = (url, username)
+        cached = _CARD_CACHE.get(key)
+        if cached is not None:
+            return cached
+
+        raw = await _fetch_avatar(url)
+        # Rendering is CPU-bound; keep the gateway connection responsive.
+        payload, _ = await asyncio.to_thread(
+            birthday_card.render_bytes, raw, username)
+        _CARD_CACHE[key] = payload
+        return payload
+    except Exception as e:
+        await log(type="warning",
+                  message=f"Could not build birthday card for {username}: {e}",
+                  severity="medium")
+        return None
 
 
 async def resolve_membership(guild, user_id):
@@ -159,9 +237,22 @@ async def check_user(user, role_handler, guild, guild_info):
         message = random.choice(birthday_messages)
         # Replace the @USER tag with @mention for the user
         message = message.replace("@USER", f"<@{user_id}>")
+
+        # Build the card from the PFP this member shows in *this* server. It is
+        # rendered in memory and attached to the post, never written to disk.
+        card_name = membership.member.display_name
+        payload = await birthday_card_bytes(membership.member, card_name)
+
         # Send the message to the general channel
         try:
-            await birthday_channel.send(message)
+            if payload:
+                attachment = discord.File(
+                    io.BytesIO(payload),
+                    filename=f"happy_birthday_{safe_filename(card_name)}.webp",
+                )
+                await birthday_channel.send(message, file=attachment)
+            else:
+                await birthday_channel.send(message)
         except Exception as e:
             await log(type="error", message=f"Failed to send birthday message. Error: {e}", severity="severe")
             return

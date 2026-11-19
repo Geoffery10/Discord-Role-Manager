@@ -140,3 +140,7 @@ last_update.json
 discord.db.BAK
 .pdm-python
 discord.db.bad
+
+# Birthday card previews (generated locally, never committed)
+birthday_previews/
+

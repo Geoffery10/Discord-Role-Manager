@@ -2,6 +2,7 @@ import asyncio
 import builtins  # noqa: F401  (kept for backward-compat with potential monkey-patches)
 import datetime
 import json
+import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import discord
@@ -732,3 +733,190 @@ async def test_check_user_skips_unparseable_birthday(fixed_today_ctx, mock_logge
     warning_calls = [c for c in mock_logger.await_args_list
                      if c.kwargs.get("type") == "warning"]
     assert warning_calls, "expected a warning log for an unparseable birthday"
+
+
+# ------------------------------------------------------------------
+# Birthday card attachment (per-guild PFP)
+# ------------------------------------------------------------------
+
+
+class FakeAsset:
+    """Enough of discord.Asset for avatar URL resolution."""
+
+    def __init__(self, key, *, guild_id=None, user_id=1):
+        self.key = key
+        ext = "gif" if key.startswith("a_") else "png"
+        if guild_id:
+            self.url = (f"https://cdn.discordapp.com/guilds/{guild_id}/users/"
+                        f"{user_id}/avatars/{key}.{ext}")
+        else:
+            self.url = f"https://cdn.discordapp.com/avatars/{user_id}/{key}.{ext}"
+
+    def is_animated(self):
+        return self.key.startswith("a_")
+
+    def replace(self, **kwargs):
+        return self
+
+
+class FakeMember:
+    """Enough of discord.Member: display_avatar prefers the guild avatar."""
+
+    def __init__(self, name="Alice", *, user_id=1, guild_id=None,
+                 guild_avatar=None, avatar=None):
+        self.display_name = name
+        self.id = user_id
+        self.guild_avatar = guild_avatar
+        self.avatar = avatar
+        self.display_avatar = guild_avatar or avatar or FakeAsset("0", user_id=user_id)
+
+
+def test_guild_avatar_is_preferred_over_the_account_avatar():
+    member = FakeMember(guild_avatar=FakeAsset("aa11", guild_id=5),
+                        avatar=FakeAsset("bb22"))
+    url, animated = birthday.display_avatar_url(member)
+    assert "guilds/5/" in url and "aa11" in url
+    assert "bb22" not in url
+    assert animated is False
+
+
+def test_server_pfp_urls_are_distinct_per_guild():
+    """The URL carries the guild id, so one server's PFP cannot resolve for another."""
+    a = FakeMember(guild_avatar=FakeAsset("aa11", guild_id=1))
+    b = FakeMember(guild_avatar=FakeAsset("aa11", guild_id=2))
+    assert birthday.display_avatar_url(a)[0] != birthday.display_avatar_url(b)[0]
+
+
+@pytest.fixture(autouse=True)
+def _clean_card_cache():
+    """Card cache is module state; never let one test seed another."""
+    birthday.clear_card_cache()
+    yield
+    birthday.clear_card_cache()
+
+
+def _stub_render(monkeypatch, renders):
+    def fake_render(raw, name):
+        renders.append(name)
+        return b"card-bytes", ".webp"
+    monkeypatch.setattr(birthday.birthday_card, "render_bytes", fake_render)
+
+
+def _stub_fetch(monkeypatch):
+    async def fake_fetch(url):
+        return url.encode()
+    monkeypatch.setattr(birthday, "_fetch_avatar", fake_fetch)
+
+
+@pytest.mark.asyncio
+async def test_server_pfps_are_rendered_separately_and_never_shared(monkeypatch):
+    birthday.clear_card_cache()
+    renders = []
+    _stub_render(monkeypatch, renders)
+    _stub_fetch(monkeypatch)
+
+    g1 = FakeMember(guild_avatar=FakeAsset("aa11", guild_id=1))
+    g2 = FakeMember(guild_avatar=FakeAsset("aa11", guild_id=2))
+
+    await birthday.birthday_card_bytes(g1, "Alice")
+    await birthday.birthday_card_bytes(g2, "Alice")
+
+    assert len(renders) == 2, "each server's PFP must get its own card"
+
+
+@pytest.mark.asyncio
+async def test_same_pfp_everywhere_is_rendered_once(monkeypatch):
+    birthday.clear_card_cache()
+    renders = []
+    _stub_render(monkeypatch, renders)
+    _stub_fetch(monkeypatch)
+
+    shared = FakeAsset("bb22")
+    one = FakeMember(avatar=shared)
+    two = FakeMember(avatar=shared)
+
+    first = await birthday.birthday_card_bytes(one, "Alice")
+    second = await birthday.birthday_card_bytes(two, "Alice")
+
+    assert len(renders) == 1, "identical PFP should reuse the render"
+    assert first == second
+
+
+@pytest.mark.asyncio
+async def test_card_cache_is_dropped_between_runs(monkeypatch):
+    renders = []
+    _stub_render(monkeypatch, renders)
+    _stub_fetch(monkeypatch)
+    member = FakeMember(avatar=FakeAsset("bb22"))
+
+    await birthday.birthday_card_bytes(member, "Alice")
+    birthday.clear_card_cache()
+    await birthday.birthday_card_bytes(member, "Alice")
+
+    assert len(renders) == 2, "a new day must regenerate, not reuse yesterday's"
+
+
+@pytest.mark.asyncio
+async def test_birthday_post_includes_the_card(fixed_today_ctx, monkeypatch, tmp_path):
+    import io as _io
+    from PIL import Image
+
+    birthday.clear_card_cache()
+    buf = _io.BytesIO()
+    Image.new("RGB", (64, 64), (200, 120, 90)).save(buf, "PNG")
+    png = buf.getvalue()
+
+    async def fake_fetch(url):
+        return png
+    monkeypatch.setattr(birthday, "_fetch_avatar", fake_fetch)
+    # Capture the real function first: patching the attribute and then calling
+    # it by name inside the lambda would recurse into the lambda itself.
+    real_render = birthday.birthday_card.render_bytes
+    monkeypatch.setattr(birthday.birthday_card, "render_bytes",
+                        lambda raw, name: real_render(raw, name, size=96))
+
+    member = FakeMember("Alice", guild_avatar=FakeAsset("aa11", guild_id=1))
+    user = make_user(12345, "Alice", "05-15")
+    role_handler = AsyncMock()
+    channel = AsyncMock()
+    role_handler.guild = MagicMock()
+    role_handler.guild.get_channel = MagicMock(return_value=channel)
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+    guild = make_guild(100, "Test Guild", member=member)
+
+    with fixed_today_ctx(2023, 5, 15):
+        await birthday.check_user(user, role_handler, guild, guild_info)
+
+    channel.send.assert_awaited_once()
+    kwargs = channel.send.await_args.kwargs
+    assert "file" in kwargs, "the post should carry the card"
+    assert kwargs["file"].filename.endswith(".webp")
+
+
+@pytest.mark.asyncio
+async def test_post_still_sent_when_the_card_fails(fixed_today_ctx, monkeypatch):
+    birthday.clear_card_cache()
+
+    async def boom(url):
+        raise RuntimeError("cdn down")
+    monkeypatch.setattr(birthday, "_fetch_avatar", boom)
+
+    member = FakeMember("Alice")
+    user = make_user(12345, "Alice", "05-15")
+    role_handler = AsyncMock()
+    channel = AsyncMock()
+    role_handler.guild = MagicMock()
+    role_handler.guild.get_channel = MagicMock(return_value=channel)
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+    guild = make_guild(100, "Test Guild", member=member)
+
+    with fixed_today_ctx(2023, 5, 15):
+        await birthday.check_user(user, role_handler, guild, guild_info)
+
+    channel.send.assert_awaited_once()
+    assert "file" not in channel.send.await_args.kwargs, "no card, but still a birthday post"
+
+
+def test_safe_filename_strips_unfriendly_characters():
+    assert birthday.safe_filename("a b/c:d") == "a_b_c_d"
+    assert birthday.safe_filename("  ..  ") == "user"
