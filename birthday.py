@@ -1,10 +1,42 @@
 import datetime
 import random
+from collections import namedtuple
+
+import discord
+
 from iDiscord import *
 from role_handler import RoleHandler
 from users import User
 from utils.logger import log
 import json
+
+# Return shape for the membership probe.
+#   member      - the discord.Member when the user is currently in the guild
+#   known_gone  - True only when Discord answered with a definitive 404, the
+#                 single case where pruning the user_guilds row is safe
+Membership = namedtuple("Membership", ["member", "known_gone"])
+
+
+async def resolve_membership(guild, user_id):
+    """Authoritatively determine whether user_id is still in guild.
+
+    guild.get_member() is cache-only: it returns None for anyone not in the
+    gateway cache, which is NOT the same as "left the server". Only a 404 from
+    fetch_member proves the user is gone. Any other failure means "unknown", so
+    the caller must skip posting but must not delete the row.
+    """
+    member = guild.get_member(user_id)
+    if member is not None:
+        return Membership(member, False)
+    try:
+        return Membership(await guild.fetch_member(user_id), False)
+    except discord.NotFound:
+        return Membership(None, True)
+    except Exception as e:
+        await log(type="warning",
+                  message=f"Could not verify membership for user {user_id} in {guild.name}. Error: {e}",
+                  severity="medium")
+        return Membership(None, False)
 
 birthday_messages = [
     "Happy birthday @USER! Wishing you all the best on your special day.",
@@ -64,6 +96,30 @@ async def check_birthday(guild):
 
 async def check_user(user, role_handler, guild, guild_info):
     global birthday_messages
+    user_id = int(user.get_user_id())
+
+    # user_guilds is only ever added to, never pruned, so a row can outlive the
+    # member's actual presence in the server. Posting a birthday mention for a
+    # departed user renders as "@unknown-user" in the channel, and the role
+    # calls below would fail on a ghost. Verify membership first: prune the
+    # stale row and skip, so nothing is posted for someone who isn't there.
+    membership = await resolve_membership(guild, user_id)
+    if membership.known_gone:
+        await remove_user_from_guild(user_id, guild.id)
+        await log(type="warning",
+                  message=f"{user.get_username()} ({user_id}) is no longer in {guild.name}. "
+                          f"Removed from user_guilds and skipped",
+                  severity="medium")
+        return
+    if membership.member is None:
+        # Membership could not be confirmed (transient failure). Don't prune a
+        # row we can't disprove, and don't risk posting a broken mention.
+        await log(type="warning",
+                  message=f"Skipped birthday check for {user.get_username()} ({user_id}) in "
+                          f"{guild.name}: membership could not be verified",
+                  severity="medium")
+        return
+
     # Get the user's birthday (format is MM-DD or MM-DD-YYYY in the database) using the birthday key
     if user.get_birthday() == "00-00":
         return
@@ -77,9 +133,6 @@ async def check_user(user, role_handler, guild, guild_info):
 
     # Check if it's the user's birthday
     if today.month == birthday.month and today.day == birthday.day:
-        # Get the user's id
-        user_id = int(user.get_user_id())
-
         # Get the birthday role id
         role_id = int(guild_info.get("birthday_role"))
         if role_id != -1:
@@ -109,9 +162,6 @@ async def check_user(user, role_handler, guild, guild_info):
             await log(type="error", message=f"Failed to send birthday message. Error: {e}", severity="severe")
             return
     else:
-        # Get the user's id
-        user_id = int(user.get_user_id())
-
         # Get the birthday role id
         role_id = int(guild_info.get("birthday_role"))
         if role_id != -1:

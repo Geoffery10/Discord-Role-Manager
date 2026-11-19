@@ -4,6 +4,7 @@ import datetime
 import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
+import discord
 import pytest
 
 # Import the module under test
@@ -504,3 +505,191 @@ async def test_find_next_birthday_returns_correct_users(fixed_today_ctx):
     assert len(result) == 1
     assert result[0].get_user_id() in {str(user_today.get_user_id()),
                                        str(user_future.get_user_id())}
+
+
+# ------------------------------------------------------------------
+# Membership guard
+#
+# Regression: user_guilds only ever grows, so a departed member keeps a row.
+# check_user used to post their birthday anyway, which rendered as
+# "@unknown-user" in the channel. These pin the guard that verifies
+# membership before posting, and prunes the stale row only on a hard 404.
+# ------------------------------------------------------------------
+
+def _not_found(message="Unknown Member"):
+    """Build a discord.NotFound that looks like the real GET member 404."""
+    resp = MagicMock()
+    resp.status = 404
+    resp.reason = "Not Found"
+    return discord.NotFound(resp, message)
+
+
+def make_guild(guild_id=100, name="Test Guild", member=None, fetch_error=None):
+    """Guild mock whose get_member mirrors a cache and fetch_member a REST call."""
+    guild = MagicMock()
+    guild.id = guild_id
+    guild.name = name
+    guild.get_member = MagicMock(return_value=member)
+    if fetch_error is not None:
+        guild.fetch_member = AsyncMock(side_effect=fetch_error)
+    else:
+        guild.fetch_member = AsyncMock(return_value=member)
+    return guild
+
+
+def _birthday_handler(guild):
+    """RoleHandler mock wired to the same guild mock the test passes in."""
+    role_handler = AsyncMock()
+    role_handler.guild = guild
+    guild.get_channel = MagicMock(return_value=AsyncMock())
+    return role_handler
+
+
+@pytest.mark.asyncio
+async def test_resolve_membership_cache_hit_does_not_hit_rest():
+    """A member in the gateway cache is authoritative; no REST call needed."""
+    member = MagicMock()
+    guild = make_guild(member=member)
+
+    result = await birthday.resolve_membership(guild, 12345)
+
+    assert result.member is member
+    assert result.known_gone is False
+    guild.fetch_member.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_resolve_membership_falls_back_to_fetch_on_cache_miss():
+    """Cache miss is not proof of absence; fetch_member resolves the truth."""
+    member = MagicMock()
+    guild = make_guild(member=None)
+    guild.fetch_member = AsyncMock(return_value=member)
+
+    result = await birthday.resolve_membership(guild, 12345)
+
+    assert result.member is member
+    assert result.known_gone is False
+    guild.fetch_member.assert_awaited_once_with(12345)
+
+
+@pytest.mark.asyncio
+async def test_resolve_membership_reports_gone_on_404():
+    """Only a 404 from fetch_member is conclusive proof the user left."""
+    guild = make_guild(member=None, fetch_error=_not_found())
+
+    result = await birthday.resolve_membership(guild, 12345)
+
+    assert result.member is None
+    assert result.known_gone is True
+
+
+@pytest.mark.asyncio
+async def test_resolve_membership_treats_other_errors_as_unknown(mock_logger):
+    """A rate limit or 500 must not be read as 'user left'."""
+    guild = make_guild(member=None, fetch_error=RuntimeError("429 rate limited"))
+
+    result = await birthday.resolve_membership(guild, 12345)
+
+    assert result.member is None
+    assert result.known_gone is False
+    assert mock_logger.await_args_list, "expected a warning log for an unverifiable membership"
+
+
+@pytest.mark.asyncio
+async def test_check_user_skips_post_and_prunes_when_member_gone(
+    fixed_today_ctx, mock_logger
+):
+    """The reported bug: birthday today, user left the server.
+
+    Nothing may be posted, and the stale user_guilds row must be dropped.
+    """
+    user = make_user(12345, "parbox", "05-15")
+    guild = make_guild(member=None, fetch_error=_not_found())
+    role_handler = _birthday_handler(guild)
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+
+    with fixed_today_ctx(2023, 5, 15):
+        with patch("birthday.remove_user_from_guild", new=AsyncMock()) as prune:
+            await birthday.check_user(user, role_handler, guild, guild_info)
+
+    prune.assert_awaited_once_with(12345, 100)
+    role_handler.add_role.assert_not_called()
+    role_handler.guild.get_channel.assert_not_called()
+    channel = role_handler.guild.get_channel.return_value
+    channel.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_check_user_prunes_gone_member_even_with_unset_birthday(
+    fixed_today_ctx, mock_logger
+):
+    """Ghosts with no birthday recorded still get pruned."""
+    user = make_user(12345, "NoBirthday", "00-00")
+    guild = make_guild(member=None, fetch_error=_not_found())
+    role_handler = _birthday_handler(guild)
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+
+    with fixed_today_ctx(2023, 5, 15):
+        with patch("birthday.remove_user_from_guild", new=AsyncMock()) as prune:
+            await birthday.check_user(user, role_handler, guild, guild_info)
+
+    prune.assert_awaited_once_with(12345, 100)
+
+
+@pytest.mark.asyncio
+async def test_check_user_keeps_row_when_membership_unverifiable(
+    fixed_today_ctx, mock_logger
+):
+    """Transient failures skip the post but must never delete the row."""
+    user = make_user(12345, "parbox", "05-15")
+    guild = make_guild(member=None, fetch_error=discord.HTTPException(MagicMock(status=500), "boom"))
+    role_handler = _birthday_handler(guild)
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+
+    with fixed_today_ctx(2023, 5, 15):
+        with patch("birthday.remove_user_from_guild", new=AsyncMock()) as prune:
+            await birthday.check_user(user, role_handler, guild, guild_info)
+
+    prune.assert_not_awaited()
+    channel = role_handler.guild.get_channel.return_value
+    channel.send.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_check_user_still_posts_for_present_member(fixed_today_ctx, mock_logger):
+    """Guard must not suppress a legitimate birthday."""
+    user = make_user(12345, "Alice", "05-15")
+    guild = make_guild(member=MagicMock())
+    role_handler = _birthday_handler(guild)
+    channel = role_handler.guild.get_channel.return_value
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+
+    with fixed_today_ctx(2023, 5, 15):
+        with patch("birthday.remove_user_from_guild", new=AsyncMock()) as prune:
+            await birthday.check_user(user, role_handler, guild, guild_info)
+
+    prune.assert_not_awaited()
+    channel.send.assert_awaited()
+    role_handler.add_role.assert_awaited_once_with(12345, 999)
+
+
+@pytest.mark.asyncio
+async def test_check_user_removes_stale_row_from_database(
+    isolated_cwd, fresh_db, fixed_today_ctx, mock_logger
+):
+    """End-to-end: the user_guilds row is really gone after the guard runs."""
+    import iDiscord
+
+    await iDiscord.add_user("12345", "parbox", "05-15", "0", None)
+    await iDiscord.add_user_to_guild("12345", 100)
+    assert await iDiscord.is_user_in_guild("12345", 100) is True
+
+    user = make_user(12345, "parbox", "05-15")
+    guild = make_guild(member=None, fetch_error=_not_found())
+    role_handler = _birthday_handler(guild)
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+
+    with fixed_today_ctx(2023, 5, 15):
+        await birthday.check_user(user, role_handler, guild, guild_info)
+
+    assert await iDiscord.is_user_in_guild("12345", 100) is False
