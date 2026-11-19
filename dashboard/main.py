@@ -27,6 +27,7 @@ PROJECT_ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from dashboard.discord_api import refresh_role_cache, get_role_name, get_cached_guild_roles
+from users import parse_month_day
 
 # --- Env Config ---
 load_dotenv(PROJECT_ROOT / ".env")
@@ -725,7 +726,7 @@ async def birthdays(request: Request):
     bdays = []
     for uid, name, bday, avatar in rows:
         try:
-            parsed = datetime.strptime(bday, "%m-%d").date()
+            parsed = parse_month_day(bday)
             next_bday = parsed.replace(year=today.year)
             if next_bday < today:
                 next_bday = parsed.replace(year=today.year + 1)
@@ -770,7 +771,7 @@ async def birthdays_list(
     bdays = []
     for uid, name, bday, avatar in rows:
         try:
-            parsed = datetime.strptime(bday, "%m-%d").date()
+            parsed = parse_month_day(bday)
             next_bday = parsed.replace(year=today.year)
             if next_bday < today:
                 next_bday = parsed.replace(year=today.year + 1)
