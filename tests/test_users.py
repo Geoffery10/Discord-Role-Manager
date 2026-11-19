@@ -173,16 +173,28 @@ def test_no_module_parses_yearless_dates_with_strptime():
     that lacks %Y.
 
     That pattern is a hard error on 3.15, so a reintroduction must fail here
-    rather than in CI or in the bot.
+    rather than in CI or in the bot. Parsed with ast rather than by text
+    matching so comments and docstrings mentioning the pattern don't count.
     """
+    import ast
     from pathlib import Path
+
     root = Path(__file__).resolve().parent.parent
-    offenders = []
     paths = list(root.glob("*.py")) + list((root / "tests").glob("*.py"))
+    offenders = []
     for path in paths:
-        for line in path.read_text().splitlines():
-            if "strptime" in line and "%d" in line and "%Y" not in line:
-                offenders.append(f"{path.name}: {line.strip()}")
+        tree = ast.parse(path.read_text(), filename=str(path))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            func = node.func
+            name = getattr(func, "attr", None) or getattr(func, "id", None)
+            if name != "strptime" or len(node.args) < 2:
+                continue
+            fmt = node.args[1]
+            if (isinstance(fmt, ast.Constant) and isinstance(fmt.value, str)
+                    and "%d" in fmt.value and "%Y" not in fmt.value):
+                offenders.append(f"{path.name}:{node.lineno} {fmt.value!r}")
     assert not offenders, offenders
 
 
