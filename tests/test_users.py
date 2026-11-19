@@ -130,3 +130,60 @@ def test_init_accepts_avatar_none_explicitly():
     u = User("1234", "testuser", "01-01", "1", None)
     assert u.get_avatar() is None
 
+
+
+# ------------------------------------------------------------------
+# parse_month_day()
+#
+# CPython 3.15 rejects %d without a year directive (python/cpython#70647):
+# strptime("05-15", "%m-%d") raises ValueError. Every stored birthday is
+# yearless, so parsing has to go through an anchor year. These pin that, and
+# the leap-day case the old implicit 1900 year could never express.
+# ------------------------------------------------------------------
+
+def test_parse_month_day_anchors_to_leap_year():
+    from users import parse_month_day
+    assert parse_month_day("05-15") == datetime.date(2000, 5, 15)
+
+
+def test_parse_month_day_handles_leap_day():
+    from users import parse_month_day
+    assert parse_month_day("02-29") == datetime.date(2000, 2, 29)
+
+
+def test_parse_month_day_accepts_legacy_year_form():
+    from users import parse_month_day
+    assert parse_month_day("05-15-1990") == datetime.date(1990, 5, 15)
+
+
+def test_parse_month_day_rejects_year_first():
+    from users import parse_month_day
+    with pytest.raises(ValueError):
+        parse_month_day("2022-02-02")
+
+
+def test_parse_month_day_rejects_out_of_range_month():
+    from users import parse_month_day
+    with pytest.raises(ValueError):
+        parse_month_day("13-01")
+
+
+def test_no_module_parses_yearless_dates_with_strptime():
+    """Guard: no source file may call strptime with a %d-without-%Y format.
+
+    That pattern is a hard error on 3.15, so a reintroduction must fail here
+    rather than in CI or in the bot.
+    """
+    from pathlib import Path
+    root = Path(__file__).resolve().parent.parent
+    offenders = []
+    for name in ("users.py", "birthday.py", "update.py", "iDiscord.py"):
+        for line in (root / name).read_text().splitlines():
+            if "strptime" in line and "%m-%d" in line and "%Y" not in line:
+                offenders.append(f"{name}: {line.strip()}")
+    assert not offenders, offenders
+
+
+def test_user_get_birthday_date_handles_leap_day():
+    u = User("1234", "leap", "02-29", "1")
+    assert u.get_birthday_date() == datetime.date(2000, 2, 29)

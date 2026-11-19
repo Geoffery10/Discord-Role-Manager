@@ -714,3 +714,21 @@ async def test_check_user_removes_stale_row_from_database(
         await birthday.check_user(user, role_handler, guild, guild_info)
 
     assert await iDiscord.is_user_in_guild("12345", 100) is False
+
+@pytest.mark.asyncio
+async def test_check_user_skips_unparseable_birthday(fixed_today_ctx, mock_logger):
+    """Corrupt birthday data must skip the user, not kill the guild loop."""
+    user = make_user(12345, "Broken", "13-45")
+    guild = make_guild(member=MagicMock())
+    role_handler = _birthday_handler(guild)
+    channel = role_handler.guild.get_channel.return_value
+    guild_info = {"birthday_role": 999, "birthday_channel": 111}
+
+    with fixed_today_ctx(2023, 5, 15):
+        await birthday.check_user(user, role_handler, guild, guild_info)
+
+    channel.send.assert_not_awaited()
+    role_handler.add_role.assert_not_called()
+    warning_calls = [c for c in mock_logger.await_args_list
+                     if c.kwargs.get("type") == "warning"]
+    assert warning_calls, "expected a warning log for an unparseable birthday"

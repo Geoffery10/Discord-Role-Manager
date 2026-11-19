@@ -6,7 +6,7 @@ import discord
 
 from iDiscord import *
 from role_handler import RoleHandler
-from users import User
+from users import User, parse_month_day
 from utils.logger import log
 import json
 
@@ -124,9 +124,13 @@ async def check_user(user, role_handler, guild, guild_info):
     if user.get_birthday() == "00-00":
         return
     try:
-        birthday = datetime.datetime.strptime(user.get_birthday(), "%m-%d").date()
-    except ValueError:
-        birthday = datetime.datetime.strptime(user.get_birthday(), "%m-%d-%Y").date()
+        birthday = parse_month_day(user.get_birthday())
+    except ValueError as e:
+        await log(type="warning",
+                  message=f"Skipping {user.get_username()} ({user_id}) in {guild.name}: "
+                          f"unparseable birthday {user.get_birthday()!r}. Error: {e}",
+                  severity="medium")
+        return
 
     # Get the current date
     today = datetime.date.today()
